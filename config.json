@@ -1,0 +1,28 @@
+{
+  "title": "Bots Dashboard",
+  "timezone": "America/New_York",
+  "units": [
+    "clawdbot-original-telegram.service",
+    "clawdbot-minimax-telegram.service",
+    "clawdbot-kimimolty-telegram.service",
+    "clawdbot-moltbot-telegram.service",
+    "clawdbot-smartmolt-telegram.service",
+    "cli-bridge-gateway-claude.service",
+    {
+      "scope": "user",
+      "unit": "cli-bridge-gateway-claude-bypass.service",
+      "user": "web"
+    },
+    {
+      "scope": "user",
+      "unit": "cli-bridge-gateway-claude-minimax.service",
+      "user": "web"
+    },
+    "cli-bridge-gateway-clawdm.service",
+    "cli-bridge-gateway-gemini-yolo.service",
+    "cli-bridge-gateway-gptmolt.service",
+    "cli-bridge-gateway-lucheest.service",
+    "kimi-cli-gateway.service",
+    "droidminimaxbot-telegram.service"
+  ]
+}

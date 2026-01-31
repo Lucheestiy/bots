@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bots Dashboard</title>
+    <meta name="description" content="Bots dashboard: status, logs, and token/cost usage." />
+    <link rel="stylesheet" href="/styles.css?v=25" />
+  </head>
+  <body>
+    <noscript>
+      <div class="noscript" data-i18n="noscript">JavaScript is required for this dashboard.</div>
+    </noscript>
+
+    <header class="header">
+      <div>
+        <h1 class="title" id="pageTitle">Bots Dashboard</h1>
+        <div class="subtitle" id="subtitle" data-i18n="subtitle">Status • Tokens • Cost • Logs • Controls</div>
+      </div>
+      <div class="meta">
+        <div class="updated">
+          <div id="updatedAt">Loading…</div>
+          <div id="relativeTime" class="muted"></div>
+        </div>
+        <div class="controls">
+          <select id="langSelect" class="select" aria-label="Language" data-i18n-aria-label="language">
+            <option value="en">EN</option>
+            <option value="ru">RU</option>
+          </select>
+          <button id="refreshBtn" class="btn" data-i18n="refresh">Refresh</button>
+          <button id="autoBtn" class="btn btnSecondary" title="Auto refresh" data-i18n-title="auto_title">Auto: On</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <section id="errors" class="errors" hidden></section>
+
+      <section class="summary" id="summary"></section>
+
+      <section class="card">
+        <div class="cardHeader">
+          <div>
+            <h2 class="cardTitle" data-i18n="bots">Bots</h2>
+            <div class="muted" id="tzLabel"></div>
+          </div>
+          <div class="controls tableControls">
+            <input
+              id="filterInput"
+              class="input"
+              type="search"
+              placeholder="Filter bots…"
+              autocomplete="off"
+              autocapitalize="none"
+              aria-label="Filter bots"
+              data-i18n-placeholder="filter_placeholder"
+              data-i18n-aria-label="filter_aria"
+            />
+            <select id="showSelect" class="select" aria-label="Show filter">
+              <option value="all" data-i18n="show_all">Show: All</option>
+              <option value="active" data-i18n="show_active">Show: Active</option>
+              <option value="issues" data-i18n="show_issues">Show: Issues</option>
+            </select>
+            <select id="sortSelect" class="select" aria-label="Sort">
+              <option value="name" data-i18n="sort_name">Sort: Name</option>
+              <option value="tokens24h_desc" data-i18n="sort_tokens24h">Sort: Tokens (24h) ↓</option>
+              <option value="cost24h_desc" data-i18n="sort_cost24h">Sort: Cost (24h) ↓</option>
+              <option value="errors24h_desc" data-i18n="sort_errors24h">Sort: Errors (24h) ↓</option>
+              <option value="uptime_desc" data-i18n="sort_uptime">Sort: Uptime ↓</option>
+              <option value="last_activity_desc" data-i18n="sort_activity">Sort: Activity ↓</option>
+            </select>
+            <div id="visibleCount" class="muted small"></div>
+          </div>
+        </div>
+        <div class="tableWrap">
+          <table class="table" id="botsTable">
+            <thead>
+              <tr>
+                <th data-i18n="th_bot">Bot</th>
+                <th data-i18n="th_status">Status</th>
+                <th data-i18n="th_enabled">Enabled</th>
+                <th data-i18n="th_uptime">Uptime</th>
+                <th data-i18n="th_last_activity">Last activity</th>
+                <th class="num" data-i18n="th_tokens24h">Tokens (24h)</th>
+                <th class="num" data-i18n="th_cost24h">Cost (24h)</th>
+                <th class="num" data-i18n="th_errors24h">Errors (24h)</th>
+                <th data-i18n="th_actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="botsTbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="footer">
+      <span class="muted" data-i18n="footer_tip">Tip: use Stop/Start to “docker-like” power-cycle a bot.</span>
+    </footer>
+
+    <div id="detailModal" class="modal" hidden>
+      <div id="detailOverlay" class="modalOverlay"></div>
+      <section class="card detailModalCard" id="detailCard" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+        <div class="cardHeader detailHeader">
+          <div>
+            <h2 class="cardTitle" id="detailTitle">Bot details</h2>
+            <div class="detailMeta" id="detailMetaLine"></div>
+          </div>
+          <div class="controls" id="detailActions">
+            <button id="closeDetailBtn" class="btn btnSecondary" data-i18n="close">Close</button>
+          </div>
+        </div>
+
+        <div class="detailLayout">
+          <div class="detailTopGrid">
+            <div class="detailBlock">
+              <h3 class="sectionTitle" data-i18n="health">Health</h3>
+              <div id="healthBox" class="infoBox"></div>
+              <div id="healthActions" class="controls healthActions"></div>
+            </div>
+
+            <div class="detailBlock">
+              <h3 class="sectionTitle" data-i18n="systemd">Systemd</h3>
+              <div id="systemdBox" class="infoBox"></div>
+            </div>
+
+            <div class="detailBlock">
+              <h3 class="sectionTitle" data-i18n="usage_summary">Usage summary</h3>
+              <div id="usageSummary" class="miniGrid"></div>
+            </div>
+
+            <div class="detailBlock">
+              <h3 class="sectionTitle" data-i18n="last_error">Last error</h3>
+              <div id="lastErrorBox" class="infoBox muted"></div>
+            </div>
+          </div>
+
+          <div class="detailCharts">
+            <div class="detailChartsHeader">
+              <h3 class="sectionTitle" id="usageChartTitle">Usage</h3>
+              <div class="controls">
+                <select id="chartWindow" class="select" aria-label="Chart window">
+                  <option value="30d">30d</option>
+                  <option value="7d">7d</option>
+                </select>
+              </div>
+            </div>
+            <div class="chartWrap">
+              <canvas id="tokensChart" width="720" height="160"></canvas>
+              <div class="chartLegend">
+                <span class="legendDot" style="background:#5eead4"></span>
+                <span data-i18n="legend_tokens_day">Tokens/day</span>
+              </div>
+            </div>
+            <div class="chartWrap">
+              <canvas id="costChart" width="720" height="160"></canvas>
+              <div class="chartLegend">
+                <span class="legendDot" style="background:#60a5fa"></span>
+                <span data-i18n="legend_cost_day">Cost/day (USD)</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="detailBottomGrid">
+            <div class="detailBlock detailBlockFull">
+              <h3 class="sectionTitle" data-i18n="unit_details">Unit details</h3>
+              <div id="unitDetailsActions" class="controls unitDetailsActions"></div>
+              <div id="unitDetailsBox" class="infoBox"></div>
+            </div>
+
+            <div class="detailBlock">
+              <h3 class="sectionTitle" data-i18n="providers">Providers</h3>
+              <div id="providersList" class="providersList"></div>
+            </div>
+
+            <div class="detailBlock">
+              <h3 class="sectionTitle" data-i18n="recent_logs">Recent logs</h3>
+              <div class="logControls">
+                <button id="loadLogsBtn" class="btn btnSecondary" data-i18n="load_logs">Load logs</button>
+                <button id="copyLogsBtn" class="btn btnSecondary" data-i18n="copy">Copy</button>
+                <label class="checkboxLabel" title="Auto-load logs on open" data-i18n-title="auto_load_logs_title">
+                  <input type="checkbox" id="autoLoadLogs" class="checkbox" />
+                  <span data-i18n="auto_load_logs">Auto</span>
+                </label>
+                <select id="logSince" class="select" aria-label="Since">
+                  <option value="" selected data-i18n="since_all">All</option>
+                  <option value="15m" data-i18n="since_15m">15m</option>
+                  <option value="1h" data-i18n="since_1h">1h</option>
+                  <option value="6h" data-i18n="since_6h">6h</option>
+                  <option value="active" data-i18n="since_active">Since active</option>
+                </select>
+                <select id="logLines" class="select">
+                  <option value="100" data-i18n="lines_100">100 lines</option>
+                  <option value="200" selected data-i18n="lines_200">200 lines</option>
+                  <option value="400" data-i18n="lines_400">400 lines</option>
+                </select>
+                <input
+                  id="logSearchInput"
+                  class="input logSearch"
+                  type="search"
+                  placeholder="Search logs…"
+                  autocomplete="off"
+                  autocapitalize="none"
+                  aria-label="Search logs"
+                  data-i18n-placeholder="log_search_placeholder"
+                  data-i18n-aria-label="log_search_aria"
+                />
+              </div>
+              <pre id="logsPre" class="logs" data-i18n="logs_hint">Click “Load logs”.</pre>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div id="confirmModal" class="modal" hidden>
+      <div id="confirmOverlay" class="modalOverlay"></div>
+      <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+        <div class="modalTitle" id="confirmTitle" data-i18n="confirm_title">Confirm action</div>
+        <div class="modalBody" id="confirmMessage"></div>
+        <div class="modalActions">
+          <button id="confirmCancelBtn" class="btn btnSecondary" data-i18n="cancel">Cancel</button>
+          <button id="confirmOkBtn" class="btn btnDanger" data-i18n="confirm">Confirm</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/app.js?v=25"></script>
+  </body>
+</html>
