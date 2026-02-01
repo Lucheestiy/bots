@@ -69,6 +69,10 @@ body.modalOpen{overflow:hidden}
 .btnSecondary{background:#111a26}
 .btnDetails{background:rgba(96,165,250,.10);border-color:rgba(96,165,250,.35)}
 .btnDetails:hover{border-color:rgba(96,165,250,.6)}
+.btnVisionFast{background:linear-gradient(135deg,rgba(34,211,238,.18),rgba(96,165,250,.18));border-color:rgba(34,211,238,.35);color:#cffafe}
+.btnVisionFast:hover{border-color:rgba(34,211,238,.7);background:linear-gradient(135deg,rgba(34,211,238,.28),rgba(96,165,250,.28))}
+.btnVision{background:linear-gradient(135deg,rgba(139,92,246,.2),rgba(236,72,153,.2));border-color:rgba(139,92,46,.4);color:#e9d5ff}
+.btnVision:hover{border-color:rgba(139,92,246,.7);background:linear-gradient(135deg,rgba(139,92,246,.3),rgba(236,72,153,.3))}
 
 .main{padding:0 20px 24px;max-width:1200px;margin:0 auto}
 

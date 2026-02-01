@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bots Command Center — Vision</title>
+    <meta name="description" content="A futuristic vision of the bots dashboard." />
+    <link rel="stylesheet" href="/vision.css?v=4" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <noscript>
+      <div class="noscript">JavaScript is required for this dashboard.</div>
+    </noscript>
+
+    <!-- Ambient background -->
+    <div class="ambient">
+      <div class="orb orb-1"></div>
+      <div class="orb orb-2"></div>
+      <div class="orb orb-3"></div>
+    </div>
+
+    <!-- Grid overlay -->
+    <div class="grid-overlay"></div>
+
+    <header class="header">
+      <div class="header-brand">
+        <div class="logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="title" id="pageTitle">Bots Command Center</h1>
+          <div class="subtitle" id="subtitle">Real-time monitoring • Performance analytics • System control</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="status-pill" id="connectionStatus">
+          <span class="status-dot"></span>
+          <span class="status-text">Live</span>
+        </div>
+        <div class="time-display" id="timeDisplay">--:--</div>
+        <a href="/" class="btn btn-ghost" title="Back to original">← Original</a>
+        <select id="langSelect" class="select" aria-label="Language">
+          <option value="en">EN</option>
+          <option value="ru">RU</option>
+        </select>
+        <button id="refreshBtn" class="btn btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+          </svg>
+          Refresh
+        </button>
+        <button id="autoBtn" class="btn btn-toggle" title="Auto refresh">Auto</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <!-- Stats Overview -->
+      <section class="stats-grid" id="summary">
+        <div class="stat-card">
+          <div class="stat-icon stat-icon-purple">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+          </div>
+          <div class="stat-content">
+            <div class="stat-label">Active Bots</div>
+            <div class="stat-value" id="statBots">-</div>
+            <div class="stat-sub" id="statBotsSub">of - total</div>
+          </div>
+          <div class="stat-sparkline" id="sparklineBots"></div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon stat-icon-cyan">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+            </svg>
+          </div>
+          <div class="stat-content">
+            <div class="stat-label">Tokens (24h)</div>
+            <div class="stat-value" id="statTokens">-</div>
+            <div class="stat-sub" id="statTokensSub">- requests</div>
+          </div>
+          <div class="stat-sparkline" id="sparklineTokens"></div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon stat-icon-blue">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="1" x2="12" y2="23"></line>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            </svg>
+          </div>
+          <div class="stat-content">
+            <div class="stat-label">Cost (24h)</div>
+            <div class="stat-value" id="statCost">-</div>
+            <div class="stat-sub">USD estimated</div>
+          </div>
+          <div class="stat-sparkline" id="sparklineCost"></div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon stat-icon-rose">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+          </div>
+          <div class="stat-content">
+            <div class="stat-label">Errors (24h)</div>
+            <div class="stat-value" id="statErrors">-</div>
+            <div class="stat-sub">stopReason=error</div>
+          </div>
+          <div class="stat-sparkline" id="sparklineErrors"></div>
+        </div>
+      </section>
+
+      <!-- Filters Bar -->
+      <section class="filters-bar">
+        <div class="filters-group">
+          <div class="search-box">
+            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <path d="m21 21-4.35-4.35"></path>
+            </svg>
+            <input
+              id="filterInput"
+              class="search-input"
+              type="search"
+              placeholder="Search bots..."
+              autocomplete="off"
+              autocapitalize="none"
+              aria-label="Filter bots"
+            />
+          </div>
+          <select id="showSelect" class="select" aria-label="Show filter">
+            <option value="all">All bots</option>
+            <option value="active">Active only</option>
+            <option value="issues">With issues</option>
+          </select>
+          <select id="sortSelect" class="select" aria-label="Sort">
+            <option value="name">Name</option>
+            <option value="tokens24h_desc">Tokens ↓</option>
+            <option value="cost24h_desc">Cost ↓</option>
+            <option value="errors24h_desc">Errors ↓</option>
+            <option value="uptime_desc">Uptime ↓</option>
+            <option value="last_activity_desc">Activity ↓</option>
+          </select>
+        </div>
+        <div class="filters-meta">
+          <span id="visibleCount" class="count-badge">- / -</span>
+          <span class="timezone" id="tzLabel"></span>
+        </div>
+      </section>
+
+      <!-- Bots Grid -->
+      <section class="bots-grid" id="botsGrid">
+        <!-- Bot cards will be inserted here -->
+      </section>
+
+      <!-- Empty State -->
+      <section class="empty-state" id="emptyState" hidden>
+        <div class="empty-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="2" y="3" width="20" height="14" rx="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+        </div>
+        <h3>No bots found</h3>
+        <p>Try adjusting your filters or search query.</p>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-left">
+        <span class="muted">Tip: use Stop/Start to power-cycle a bot like Docker.</span>
+      </div>
+      <div class="footer-right">
+        <span class="updated" id="updatedAt">Updated: --</span>
+        <span class="relative" id="relativeTime">--</span>
+      </div>
+    </footer>
+
+    <!-- Detail Panel (Slide-over) -->
+    <div id="detailPanel" class="detail-panel" hidden>
+      <div class="detail-backdrop" id="detailBackdrop"></div>
+      <div class="detail-content">
+        <div class="detail-header">
+          <div class="detail-title-group">
+            <h2 class="detail-title" id="detailTitle">Bot Details</h2>
+            <div class="detail-meta" id="detailMetaLine"></div>
+          </div>
+	          <div class="detail-actions">
+	            <button id="detailPrevBtn" class="btn btn-icon" title="Previous">
+	              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+	                <polyline points="15 18 9 12 15 6"></polyline>
+	              </svg>
+	            </button>
+	            <button id="detailNextBtn" class="btn btn-icon" title="Next">
+	              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+	                <polyline points="9 18 15 12 9 6"></polyline>
+	              </svg>
+	            </button>
+	          </div>
+	        </div>
+
+        <div class="detail-body">
+          <!-- Quick Actions -->
+          <div class="detail-section">
+            <div class="quick-actions" id="detailQuickActions">
+              <!-- Action buttons injected here -->
+            </div>
+          </div>
+
+          <!-- Status Grid -->
+          <div class="detail-grid">
+            <div class="info-card">
+              <h3 class="section-title">Health Status</h3>
+              <div id="healthBox" class="health-content"></div>
+              <div id="healthActions" class="health-actions"></div>
+            </div>
+
+            <div class="info-card">
+              <h3 class="section-title">System Status</h3>
+              <div id="systemdBox" class="info-list"></div>
+            </div>
+
+            <div class="info-card">
+              <h3 class="section-title">Usage Summary</h3>
+              <div id="usageSummary" class="mini-stats"></div>
+            </div>
+
+            <div class="info-card">
+              <h3 class="section-title">Last Error</h3>
+              <div id="lastErrorBox" class="error-content"></div>
+            </div>
+          </div>
+
+          <!-- Charts -->
+          <div class="detail-section">
+            <div class="section-header">
+              <h3 class="section-title" id="usageChartTitle">Usage History</h3>
+              <select id="chartWindow" class="select select-small">
+                <option value="30d">30 days</option>
+                <option value="7d">7 days</option>
+              </select>
+            </div>
+            <div class="charts-grid">
+              <div class="chart-card">
+                <div class="chart-header">
+                  <span class="chart-dot" style="background:#a78bfa"></span>
+                  <span class="chart-label">Tokens per day</span>
+                </div>
+                <div class="chart-wrap">
+                  <canvas id="tokensChart" width="400" height="120"></canvas>
+                </div>
+              </div>
+              <div class="chart-card">
+                <div class="chart-header">
+                  <span class="chart-dot" style="background:#60a5fa"></span>
+                  <span class="chart-label">Cost per day (USD)</span>
+                </div>
+                <div class="chart-wrap">
+                  <canvas id="costChart" width="400" height="120"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Providers -->
+          <div class="detail-section">
+            <h3 class="section-title">Providers</h3>
+            <div id="providersList" class="providers-list"></div>
+          </div>
+
+          <!-- Unit Details -->
+          <div class="detail-section">
+            <div class="section-header">
+              <h3 class="section-title">Unit Details</h3>
+              <div id="unitDetailsActions" class="copy-actions"></div>
+            </div>
+            <div id="unitDetailsBox" class="details-code"></div>
+          </div>
+
+          <!-- Logs -->
+          <div class="detail-section">
+            <div class="section-header">
+              <h3 class="section-title">System Logs</h3>
+              <div class="log-controls">
+                <button id="loadLogsBtn" class="btn btn-secondary">Load logs</button>
+                <button id="copyLogsBtn" class="btn btn-secondary">Copy</button>
+                <label class="toggle-label">
+                  <input type="checkbox" id="autoLoadLogs" class="toggle" />
+                  <span>Auto-load</span>
+                </label>
+                <select id="logSince" class="select select-small">
+                  <option value="">All time</option>
+                  <option value="15m">15 min</option>
+                  <option value="1h">1 hour</option>
+                  <option value="6h">6 hours</option>
+                  <option value="active">Since active</option>
+                </select>
+                <select id="logLines" class="select select-small">
+                  <option value="100">100 lines</option>
+                  <option value="200" selected>200 lines</option>
+                  <option value="400">400 lines</option>
+                </select>
+              </div>
+            </div>
+            <div class="search-box search-logs">
+              <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <path d="m21 21-4.35-4.35"></path>
+              </svg>
+              <input
+                id="logSearchInput"
+                class="search-input"
+                type="search"
+                placeholder="Search in logs..."
+                autocomplete="off"
+              />
+            </div>
+	            <pre id="logsPre" class="logs">Click "Load logs" to view system logs.</pre>
+	          </div>
+	        </div>
+	
+	        <div class="detail-footer">
+	          <button id="closeDetailBtn" type="button" class="btn btn-danger btn-close-big">Close</button>
+	        </div>
+	      </div>
+	    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirmModal" class="modal" hidden>
+      <div class="modal-backdrop" id="confirmBackdrop"></div>
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 class="modal-title" id="confirmTitle">Confirm Action</h3>
+        </div>
+        <div class="modal-body" id="confirmMessage"></div>
+        <div class="modal-actions">
+          <button id="confirmCancelBtn" class="btn btn-secondary">Cancel</button>
+          <button id="confirmOkBtn" class="btn btn-danger">Confirm</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="/vision2.js?v=2"></script>
+  </body>
+</html>

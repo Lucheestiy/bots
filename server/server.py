@@ -9,7 +9,9 @@ import pwd
 import re
 import shlex
 import subprocess
-from dataclasses import dataclass
+import threading
+import time
+from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -26,7 +28,8 @@ def _utcnow() -> _dt.datetime:
 
 
 def _json_dumps(obj: Any) -> str:
-    return json.dumps(obj, ensure_ascii=False, indent=2, sort_keys=True)
+    # Compact JSON for speed (API is consumed by JS; readability isn't needed here).
+    return json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
 
 
 def _safe_int(v: object, default: int = 0) -> int:
@@ -442,19 +445,36 @@ def _parse_gateway_port_from_config(config_path: Path) -> str | None:
     return None
 
 
-def _detect_bot_def(spec: UnitSpec) -> BotDef:
-    show = _systemctl_show(
-        spec,
-        [
-            "Id",
-            "Description",
-            "FragmentPath",
-            "LoadState",
-            "ActiveState",
-            "SubState",
-        ],
-    )
+@dataclass(frozen=True)
+class _FileSig:
+    size: int
+    mtime_ns: int
 
+
+_UNIT_FILE_CACHE_LOCK = threading.Lock()
+_UNIT_FILE_CACHE: dict[str, tuple[_FileSig, dict[str, object]]] = {}
+
+
+def _parse_unit_file_cached(fragment_path: Path) -> dict[str, object]:
+    try:
+        st = fragment_path.stat()
+        sig = _FileSig(size=int(st.st_size), mtime_ns=int(st.st_mtime_ns))
+    except FileNotFoundError:
+        return {"description": "", "working_directory": "", "exec_start": "", "env": {}}
+
+    key = str(fragment_path)
+    with _UNIT_FILE_CACHE_LOCK:
+        cached = _UNIT_FILE_CACHE.get(key)
+        if cached and cached[0] == sig:
+            return cached[1]
+
+    parsed = _parse_unit_file(fragment_path)
+    with _UNIT_FILE_CACHE_LOCK:
+        _UNIT_FILE_CACHE[key] = (sig, parsed)
+    return parsed
+
+
+def _detect_bot_def(spec: UnitSpec, show: dict[str, str]) -> BotDef:
     fragment = (show.get("FragmentPath") or "").strip()
     display_name = (show.get("Description") or spec.unit).strip() or spec.unit
     telegram_handle = None
@@ -473,7 +493,7 @@ def _detect_bot_def(spec: UnitSpec) -> BotDef:
             state_dir=None,
         )
 
-    parsed = _parse_unit_file(Path(fragment))
+    parsed = _parse_unit_file_cached(Path(fragment))
     working_directory = str(parsed.get("working_directory") or "").strip()
     exec_start = str(parsed.get("exec_start") or "").strip()
     env: dict[str, str] = dict(parsed.get("env") or {})
@@ -538,197 +558,396 @@ def _dates_last_n(tz: ZoneInfo, days: int) -> list[str]:
 
 
 def _scan_clawdbot_usage(state_dir: Path, tz: ZoneInfo) -> dict[str, object]:
-    sessions = list(state_dir.glob("agents/*/sessions/*.jsonl"))
-    sessions.sort(key=lambda p: p.name)
+    # NOTE: kept for compatibility; actual scanning is now cached + incremental.
+    cache_key = f"{state_dir.resolve()}::{tz.key}"
+    with _USAGE_CACHE_LOCK:
+        entry = _USAGE_CACHE.get(cache_key)
+        if not entry:
+            entry = _UsageCacheEntry(state_dir=state_dir.resolve(), tz_key=tz.key)
+            _USAGE_CACHE[cache_key] = entry
+    return entry.get_usage(tz)
 
-    now = _utcnow()
-    windows = {
-        "1h": now - _dt.timedelta(hours=1),
-        "5h": now - _dt.timedelta(hours=5),
-        "24h": now - _dt.timedelta(hours=24),
-        "7d": now - _dt.timedelta(days=7),
-        "30d": now - _dt.timedelta(days=30),
-    }
-    window_totals: dict[str, dict[str, float]] = {
-        k: {"tokens": 0.0, "costUSD": 0.0, "requests": 0.0, "errors": 0.0} for k in windows
-    }
 
-    by_provider: dict[str, dict[str, object]] = {}
-    daily_map: dict[str, dict[str, float]] = {}
+@dataclass
+class _UsageBucket:
+    tokens: float = 0.0
+    costUSD: float = 0.0
+    requests: float = 0.0
+    errors: float = 0.0
 
-    all_tokens = 0.0
-    all_cost = 0.0
-    all_requests = 0.0
-    all_errors = 0.0
-    last_activity: _dt.datetime | None = None
-    last_error: dict[str, str] | None = None
+    def add(self, tokens: float, cost_usd: float, is_error: bool) -> None:
+        self.tokens += float(tokens)
+        self.costUSD += float(cost_usd)
+        self.requests += 1.0
+        if is_error:
+            self.errors += 1.0
 
-    total_bytes = 0
-    for fp in sessions:
-        try:
-            total_bytes += int(fp.stat().st_size)
-        except Exception:  # noqa: BLE001
-            pass
 
-        try:
-            with fp.open("r", encoding="utf-8", errors="replace") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        rec = json.loads(line)
-                    except Exception:  # noqa: BLE001
-                        continue
-                    if rec.get("type") != "message":
-                        continue
-                    msg = rec.get("message") or {}
-                    if msg.get("role") != "assistant":
-                        continue
-                    usage = msg.get("usage") or rec.get("usage") or {}
-                    if not isinstance(usage, dict) or not usage:
-                        continue
+@dataclass
+class _UsageAgg:
+    allTime: _UsageBucket = field(default_factory=_UsageBucket)
+    byProvider: dict[str, dict[str, object]] = field(default_factory=dict)
+    daily: dict[str, _UsageBucket] = field(default_factory=dict)  # tz date -> bucket
+    perMinuteUTC: dict[int, _UsageBucket] = field(default_factory=dict)  # epoch minute -> bucket
+    perHourUTC: dict[int, _UsageBucket] = field(default_factory=dict)  # epoch hour -> bucket
+    lastActivityAt: _dt.datetime | None = None
+    lastErrorAt: _dt.datetime | None = None
+    lastErrorMsg: str = ""
 
-                    ts = _parse_iso(rec.get("timestamp"))
-                    if not ts:
-                        continue
+    def reset(self) -> None:
+        self.allTime = _UsageBucket()
+        self.byProvider = {}
+        self.daily = {}
+        self.perMinuteUTC = {}
+        self.perHourUTC = {}
+        self.lastActivityAt = None
+        self.lastErrorAt = None
+        self.lastErrorMsg = ""
 
-                    tokens = _safe_float(usage.get("totalTokens"), 0.0)
-                    if tokens <= 0:
-                        tokens = (
-                            _safe_float(usage.get("input"), 0.0)
-                            + _safe_float(usage.get("output"), 0.0)
-                            + _safe_float(usage.get("cacheRead"), 0.0)
-                            + _safe_float(usage.get("cacheWrite"), 0.0)
-                        )
+    def add_event(
+        self,
+        ts: _dt.datetime,
+        tz: ZoneInfo,
+        *,
+        tokens: float,
+        cost_usd: float,
+        is_error: bool,
+        provider: str,
+        model: str,
+        error_text: str,
+    ) -> None:
+        self.allTime.add(tokens, cost_usd, is_error)
 
-                    cost_obj = usage.get("cost") or {}
-                    cost_total = (
-                        _safe_float(cost_obj.get("total"), 0.0) if isinstance(cost_obj, dict) else 0.0
-                    )
+        if not self.lastActivityAt or ts > self.lastActivityAt:
+            self.lastActivityAt = ts
 
-                    stop_reason = str(msg.get("stopReason") or rec.get("stopReason") or "").strip().lower()
-                    error_message = str(msg.get("errorMessage") or rec.get("errorMessage") or "").strip()
-                    is_error = stop_reason == "error" or bool(error_message)
+        if is_error and (not self.lastErrorAt or ts >= self.lastErrorAt):
+            self.lastErrorAt = ts
+            self.lastErrorMsg = error_text or "error"
 
-                    all_tokens += tokens
-                    all_cost += cost_total
-                    all_requests += 1.0
-                    if is_error:
-                        all_errors += 1.0
-                        last_error = {
-                            "timestamp": ts.isoformat().replace("+00:00", "Z"),
-                            "message": error_message or stop_reason or "error",
-                        }
-
-                    if not last_activity or ts > last_activity:
-                        last_activity = ts
-
-                    for win, start in windows.items():
-                        if ts >= start:
-                            wt = window_totals[win]
-                            wt["tokens"] += tokens
-                            wt["costUSD"] += cost_total
-                            wt["requests"] += 1.0
-                            if is_error:
-                                wt["errors"] += 1.0
-
-                    provider = str(msg.get("provider") or rec.get("provider") or "unknown").strip() or "unknown"
-                    model = str(
-                        msg.get("model") or msg.get("modelId") or rec.get("model") or rec.get("modelId") or "unknown"
-                    ).strip() or "unknown"
-                    if provider not in by_provider:
-                        by_provider[provider] = {
-                            "tokens": 0.0,
-                            "costUSD": 0.0,
-                            "requests": 0.0,
-                            "errors": 0.0,
-                            "models": {},
-                        }
-                    p = by_provider[provider]
-                    p["tokens"] = float(p.get("tokens", 0.0)) + tokens
-                    p["costUSD"] = float(p.get("costUSD", 0.0)) + cost_total
-                    p["requests"] = float(p.get("requests", 0.0)) + 1.0
-                    if is_error:
-                        p["errors"] = float(p.get("errors", 0.0)) + 1.0
-
-                    models: dict[str, dict[str, float]] = dict(p.get("models") or {})
-                    if model not in models:
-                        models[model] = {"tokens": 0.0, "costUSD": 0.0, "requests": 0.0, "errors": 0.0}
-                    models[model]["tokens"] += tokens
-                    models[model]["costUSD"] += cost_total
-                    models[model]["requests"] += 1.0
-                    if is_error:
-                        models[model]["errors"] += 1.0
-                    p["models"] = models
-
-                    day = ts.astimezone(tz).date().isoformat()
-                    if day not in daily_map:
-                        daily_map[day] = {"tokens": 0.0, "costUSD": 0.0, "requests": 0.0, "errors": 0.0}
-                    daily_map[day]["tokens"] += tokens
-                    daily_map[day]["costUSD"] += cost_total
-                    daily_map[day]["requests"] += 1.0
-                    if is_error:
-                        daily_map[day]["errors"] += 1.0
-        except FileNotFoundError:
-            continue
-
-    daily_keys = _dates_last_n(tz, 30)
-    daily30d = []
-    for d in daily_keys:
-        x = daily_map.get(d) or {"tokens": 0.0, "costUSD": 0.0, "requests": 0.0, "errors": 0.0}
-        daily30d.append(
-            {
-                "date": d,
-                "tokens": int(round(float(x.get("tokens", 0.0)))),
-                "costUSD": float(x.get("costUSD", 0.0)),
-                "requests": int(round(float(x.get("requests", 0.0)))),
-                "errors": int(round(float(x.get("errors", 0.0)))),
+        prov = self.byProvider.get(provider)
+        if not prov:
+            prov = {
+                "tokens": 0.0,
+                "costUSD": 0.0,
+                "requests": 0.0,
+                "errors": 0.0,
+                "models": {},
             }
+            self.byProvider[provider] = prov
+
+        prov["tokens"] = float(prov.get("tokens", 0.0)) + float(tokens)
+        prov["costUSD"] = float(prov.get("costUSD", 0.0)) + float(cost_usd)
+        prov["requests"] = float(prov.get("requests", 0.0)) + 1.0
+        if is_error:
+            prov["errors"] = float(prov.get("errors", 0.0)) + 1.0
+
+        models = prov.get("models")
+        if not isinstance(models, dict):
+            models = {}
+            prov["models"] = models
+
+        m = models.get(model)
+        if not m:
+            m = {"tokens": 0.0, "costUSD": 0.0, "requests": 0.0, "errors": 0.0}
+            models[model] = m
+        m["tokens"] = float(m.get("tokens", 0.0)) + float(tokens)
+        m["costUSD"] = float(m.get("costUSD", 0.0)) + float(cost_usd)
+        m["requests"] = float(m.get("requests", 0.0)) + 1.0
+        if is_error:
+            m["errors"] = float(m.get("errors", 0.0)) + 1.0
+
+        day = ts.astimezone(tz).date().isoformat()
+        self.daily.setdefault(day, _UsageBucket()).add(tokens, cost_usd, is_error)
+
+        minute = int(ts.timestamp() // 60)
+        self.perMinuteUTC.setdefault(minute, _UsageBucket()).add(tokens, cost_usd, is_error)
+
+        hour = int(ts.timestamp() // 3600)
+        self.perHourUTC.setdefault(hour, _UsageBucket()).add(tokens, cost_usd, is_error)
+
+    def prune(self, now: _dt.datetime, tz: ZoneInfo) -> None:
+        # Keep per-minute bins for ~25h, per-hour bins for ~31d.
+        now_min = int(now.timestamp() // 60)
+        min_cut = now_min - (25 * 60)
+        if self.perMinuteUTC:
+            for k in [k for k in self.perMinuteUTC.keys() if k < min_cut]:
+                del self.perMinuteUTC[k]
+
+        now_hr = int(now.timestamp() // 3600)
+        hr_cut = now_hr - (31 * 24)
+        if self.perHourUTC:
+            for k in [k for k in self.perHourUTC.keys() if k < hr_cut]:
+                del self.perHourUTC[k]
+
+        # Keep daily buckets for ~60d to bound memory.
+        today = now.astimezone(tz).date()
+        day_cut = today - _dt.timedelta(days=60)
+        if self.daily:
+            for k in list(self.daily.keys()):
+                try:
+                    if _dt.date.fromisoformat(k) < day_cut:
+                        del self.daily[k]
+                except Exception:  # noqa: BLE001
+                    continue
+
+
+@dataclass
+class _SessionCursor:
+    dev: int
+    ino: int
+    pos: int
+
+
+@dataclass
+class _UsageCacheEntry:
+    state_dir: Path
+    tz_key: str
+    lock: threading.Lock = field(default_factory=threading.Lock)
+    cursors: dict[str, _SessionCursor] = field(default_factory=dict)  # path -> cursor
+    agg: _UsageAgg = field(default_factory=_UsageAgg)
+    last_refresh_mono: float = 0.0
+    sessions_files: int = 0
+    sessions_bytes: int = 0
+
+    def _full_rebuild(self, tz: ZoneInfo) -> None:
+        self.cursors = {}
+        self.agg.reset()
+        self._incremental_refresh(tz, allow_rebuild=False)
+
+    def _incremental_refresh(self, tz: ZoneInfo, *, allow_rebuild: bool) -> None:
+        sessions = list(self.state_dir.glob("agents/*/sessions/*.jsonl"))
+        sessions.sort(key=lambda p: p.name)
+
+        session_paths = {str(p) for p in sessions}
+        if allow_rebuild and self.cursors and any(p not in session_paths for p in self.cursors.keys()):
+            return self._full_rebuild(tz)
+
+        total_bytes = 0
+        now = _utcnow()
+
+        for fp in sessions:
+            path = str(fp)
+            try:
+                st = fp.stat()
+            except FileNotFoundError:
+                if allow_rebuild:
+                    return self._full_rebuild(tz)
+                continue
+
+            total_bytes += int(st.st_size)
+
+            dev = int(getattr(st, "st_dev", 0))
+            ino = int(getattr(st, "st_ino", 0))
+            size = int(st.st_size)
+
+            cur = self.cursors.get(path)
+            if cur and (cur.dev != dev or cur.ino != ino or size < cur.pos):
+                if allow_rebuild:
+                    return self._full_rebuild(tz)
+                cur = None
+
+            start_pos = cur.pos if cur else 0
+            if size == start_pos:
+                if not cur:
+                    self.cursors[path] = _SessionCursor(dev=dev, ino=ino, pos=start_pos)
+                continue
+
+            try:
+                with fp.open("rb") as f:
+                    if start_pos > 0:
+                        f.seek(start_pos)
+                    for raw_line in f:
+                        line = raw_line.decode("utf-8", errors="replace").strip()
+                        if not line:
+                            continue
+                        try:
+                            rec = json.loads(line)
+                        except Exception:  # noqa: BLE001
+                            continue
+                        if rec.get("type") != "message":
+                            continue
+                        msg = rec.get("message") or {}
+                        if msg.get("role") != "assistant":
+                            continue
+                        usage = msg.get("usage") or rec.get("usage") or {}
+                        if not isinstance(usage, dict) or not usage:
+                            continue
+
+                        ts = _parse_iso(rec.get("timestamp"))
+                        if not ts:
+                            continue
+
+                        tokens = _safe_float(usage.get("totalTokens"), 0.0)
+                        if tokens <= 0:
+                            tokens = (
+                                _safe_float(usage.get("input"), 0.0)
+                                + _safe_float(usage.get("output"), 0.0)
+                                + _safe_float(usage.get("cacheRead"), 0.0)
+                                + _safe_float(usage.get("cacheWrite"), 0.0)
+                            )
+
+                        cost_obj = usage.get("cost") or {}
+                        cost_total = _safe_float(cost_obj.get("total"), 0.0) if isinstance(cost_obj, dict) else 0.0
+
+                        stop_reason = str(msg.get("stopReason") or rec.get("stopReason") or "").strip().lower()
+                        error_message = str(msg.get("errorMessage") or rec.get("errorMessage") or "").strip()
+                        is_error = stop_reason == "error" or bool(error_message)
+
+                        provider = str(msg.get("provider") or rec.get("provider") or "unknown").strip() or "unknown"
+                        model = str(
+                            msg.get("model")
+                            or msg.get("modelId")
+                            or rec.get("model")
+                            or rec.get("modelId")
+                            or "unknown"
+                        ).strip() or "unknown"
+
+                        error_text = error_message or stop_reason or "error"
+                        self.agg.add_event(
+                            ts,
+                            tz,
+                            tokens=tokens,
+                            cost_usd=cost_total,
+                            is_error=is_error,
+                            provider=provider,
+                            model=model,
+                            error_text=error_text,
+                        )
+                    end_pos = int(f.tell())
+            except FileNotFoundError:
+                if allow_rebuild:
+                    return self._full_rebuild(tz)
+                continue
+
+            self.cursors[path] = _SessionCursor(dev=dev, ino=ino, pos=end_pos)
+
+        self.sessions_files = len(sessions)
+        self.sessions_bytes = int(total_bytes)
+        self.agg.prune(now, tz)
+
+    def get_usage(self, tz: ZoneInfo) -> dict[str, object]:
+        # Avoid multiple expensive refreshes in bursts (e.g., several clients opening at once).
+        with self.lock:
+            now_mono = time.monotonic()
+            if self.last_refresh_mono and (now_mono - self.last_refresh_mono) < 1.0:
+                return self._build_output(tz)
+
+            self.last_refresh_mono = now_mono
+            self._incremental_refresh(tz, allow_rebuild=True)
+            return self._build_output(tz)
+
+    def _build_output(self, tz: ZoneInfo) -> dict[str, object]:
+        now = _utcnow()
+        now_min = int(now.timestamp() // 60)
+        now_hr = int(now.timestamp() // 3600)
+
+        def _sum_min(minutes: int) -> _UsageBucket:
+            start = int((now - _dt.timedelta(minutes=minutes)).timestamp() // 60)
+            out = _UsageBucket()
+            for k in range(start, now_min + 1):
+                b = self.agg.perMinuteUTC.get(k)
+                if b:
+                    out.tokens += b.tokens
+                    out.costUSD += b.costUSD
+                    out.requests += b.requests
+                    out.errors += b.errors
+            return out
+
+        def _sum_hr(hours: int) -> _UsageBucket:
+            start = int((now - _dt.timedelta(hours=hours)).timestamp() // 3600)
+            out = _UsageBucket()
+            for k in range(start, now_hr + 1):
+                b = self.agg.perHourUTC.get(k)
+                if b:
+                    out.tokens += b.tokens
+                    out.costUSD += b.costUSD
+                    out.requests += b.requests
+                    out.errors += b.errors
+            return out
+
+        windows = {
+            "1h": _sum_min(60),
+            "5h": _sum_min(300),
+            "24h": _sum_min(24 * 60),
+            "7d": _sum_hr(7 * 24),
+            "30d": _sum_hr(30 * 24),
+        }
+
+        window_out: dict[str, dict[str, object]] = {}
+        for win, b in windows.items():
+            window_out[win] = {
+                "tokens": int(round(b.tokens)),
+                "costUSD": float(b.costUSD),
+                "requests": int(round(b.requests)),
+                "errors": int(round(b.errors)),
+            }
+
+        daily_keys = _dates_last_n(tz, 30)
+        daily30d: list[dict[str, object]] = []
+        for d in daily_keys:
+            b = self.agg.daily.get(d) or _UsageBucket()
+            daily30d.append(
+                {
+                    "date": d,
+                    "tokens": int(round(b.tokens)),
+                    "costUSD": float(b.costUSD),
+                    "requests": int(round(b.requests)),
+                    "errors": int(round(b.errors)),
+                }
+            )
+
+        by_provider_out: dict[str, dict[str, object]] = {}
+        for provider, st in self.agg.byProvider.items():
+            models_out: dict[str, dict[str, object]] = {}
+            models = st.get("models")
+            if isinstance(models, dict):
+                for model, ms in models.items():
+                    if not isinstance(ms, dict):
+                        continue
+                    models_out[str(model)] = {
+                        "tokens": int(round(float(ms.get("tokens", 0.0)))),
+                        "costUSD": float(ms.get("costUSD", 0.0)),
+                        "requests": int(round(float(ms.get("requests", 0.0)))),
+                        "errors": int(round(float(ms.get("errors", 0.0)))),
+                    }
+
+            by_provider_out[str(provider)] = {
+                "tokens": int(round(float(st.get("tokens", 0.0)))),
+                "costUSD": float(st.get("costUSD", 0.0)),
+                "requests": int(round(float(st.get("requests", 0.0)))),
+                "errors": int(round(float(st.get("errors", 0.0)))),
+                "models": models_out,
+            }
+
+        last_error = (
+            {
+                "timestamp": self.agg.lastErrorAt.isoformat().replace("+00:00", "Z"),
+                "message": self.agg.lastErrorMsg or "error",
+            }
+            if self.agg.lastErrorAt
+            else None
         )
 
-    window_out: dict[str, dict[str, object]] = {}
-    for win, st in window_totals.items():
-        window_out[win] = {
-            "tokens": int(round(float(st.get("tokens", 0.0)))),
-            "costUSD": float(st.get("costUSD", 0.0)),
-            "requests": int(round(float(st.get("requests", 0.0)))),
-            "errors": int(round(float(st.get("errors", 0.0)))),
+        return {
+            "sessionsFiles": int(self.sessions_files),
+            "sessionsBytes": int(self.sessions_bytes),
+            "allTime": {
+                "tokens": int(round(self.agg.allTime.tokens)),
+                "costUSD": float(self.agg.allTime.costUSD),
+                "requests": int(round(self.agg.allTime.requests)),
+                "errors": int(round(self.agg.allTime.errors)),
+            },
+            "windows": window_out,
+            "byProvider": by_provider_out,
+            "lastActivityAt": self.agg.lastActivityAt.isoformat().replace("+00:00", "Z") if self.agg.lastActivityAt else None,
+            "lastError": last_error,
+            "daily30d": daily30d,
         }
 
-    by_provider_out: dict[str, dict[str, object]] = {}
-    for provider, st in by_provider.items():
-        models_out: dict[str, dict[str, object]] = {}
-        for model, ms in (st.get("models") or {}).items():  # type: ignore[union-attr]
-            models_out[str(model)] = {
-                "tokens": int(round(float(ms.get("tokens", 0.0)))),
-                "costUSD": float(ms.get("costUSD", 0.0)),
-                "requests": int(round(float(ms.get("requests", 0.0)))),
-                "errors": int(round(float(ms.get("errors", 0.0)))),
-            }
-        by_provider_out[str(provider)] = {
-            "tokens": int(round(float(st.get("tokens", 0.0)))),
-            "costUSD": float(st.get("costUSD", 0.0)),
-            "requests": int(round(float(st.get("requests", 0.0)))),
-            "errors": int(round(float(st.get("errors", 0.0)))),
-            "models": models_out,
-        }
 
-    return {
-        "sessionsFiles": len(sessions),
-        "sessionsBytes": int(total_bytes),
-        "allTime": {
-            "tokens": int(round(all_tokens)),
-            "costUSD": float(all_cost),
-            "requests": int(round(all_requests)),
-            "errors": int(round(all_errors)),
-        },
-        "windows": window_out,
-        "byProvider": by_provider_out,
-        "lastActivityAt": last_activity.isoformat().replace("+00:00", "Z") if last_activity else None,
-        "lastError": last_error,
-        "daily30d": daily30d,
-    }
+_USAGE_CACHE_LOCK = threading.Lock()
+_USAGE_CACHE: dict[str, _UsageCacheEntry] = {}
 
 
 def _load_config(path: Path) -> dict[str, object]:
@@ -789,6 +1008,7 @@ def _build_payload(cfg: dict[str, object]) -> dict[str, object]:
     props = [
         "Id",
         "Description",
+        "FragmentPath",
         "LoadState",
         "ActiveState",
         "SubState",
@@ -815,8 +1035,8 @@ def _build_payload(cfg: dict[str, object]) -> dict[str, object]:
     for spec in specs:
         u = spec.unit
         totals["botsTotal"] += 1
-        botdef = _detect_bot_def(spec)
         show = _systemctl_show(spec, props)
+        botdef = _detect_bot_def(spec, show)
 
         active_state = (show.get("ActiveState") or "").strip()
         sub_state = (show.get("SubState") or "").strip()
@@ -919,6 +1139,42 @@ def _build_payload(cfg: dict[str, object]) -> dict[str, object]:
     }
 
 
+@dataclass
+class _BotsPayloadCache:
+    lock: threading.Lock = field(default_factory=threading.Lock)
+    cfg_sig: _FileSig | None = None
+    payload: dict[str, object] | None = None
+    built_mono: float = 0.0
+
+
+_BOTS_PAYLOAD_CACHE = _BotsPayloadCache()
+
+
+def _get_bots_payload(config_path: Path) -> dict[str, object]:
+    try:
+        st = config_path.stat()
+        sig = _FileSig(size=int(st.st_size), mtime_ns=int(st.st_mtime_ns))
+    except FileNotFoundError:
+        raise
+
+    now_mono = time.monotonic()
+    with _BOTS_PAYLOAD_CACHE.lock:
+        if (
+            _BOTS_PAYLOAD_CACHE.payload is not None
+            and _BOTS_PAYLOAD_CACHE.cfg_sig == sig
+            and (now_mono - _BOTS_PAYLOAD_CACHE.built_mono) < 1.0
+        ):
+            return _BOTS_PAYLOAD_CACHE.payload
+
+    cfg = _load_config(config_path)
+    payload = _build_payload(cfg)
+    with _BOTS_PAYLOAD_CACHE.lock:
+        _BOTS_PAYLOAD_CACHE.cfg_sig = sig
+        _BOTS_PAYLOAD_CACHE.payload = payload
+        _BOTS_PAYLOAD_CACHE.built_mono = now_mono
+    return payload
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "bots-dashboard/1.0"
 
@@ -929,7 +1185,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(raw)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
-        self.wfile.write(raw)
+        if self.command != "HEAD":
+            self.wfile.write(raw)
 
     def _send_json(self, code: int, obj: object) -> None:
         self._send(code, _json_dumps(obj), "application/json")
@@ -941,8 +1198,7 @@ class Handler(BaseHTTPRequestHandler):
 
         if parsed.path == "/api/bots":
             try:
-                cfg = _load_config(self.server.config_path)  # type: ignore[attr-defined]
-                payload = _build_payload(cfg)
+                payload = _get_bots_payload(self.server.config_path)  # type: ignore[attr-defined]
                 return self._send_json(200, payload)
             except Exception as e:  # noqa: BLE001
                 return self._send_json(500, {"error": str(e)})
@@ -1020,6 +1276,9 @@ class Handler(BaseHTTPRequestHandler):
             )
 
         return self._send_json(404, {"error": "not found"})
+
+    def do_HEAD(self) -> None:  # noqa: N802
+        return self.do_GET()
 
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
