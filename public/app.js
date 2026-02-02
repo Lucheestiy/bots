@@ -174,6 +174,11 @@ const I18N = {
     last_error: "Last error",
     providers: "Providers",
     recent_logs: "Recent logs",
+    bot_docs: "How it works",
+    bot_docs_missing: "No description configured for this bot.",
+    bot_docs_how: "How it works",
+    bot_docs_can: "Can",
+    bot_docs_cannot: "Cannot",
     load_logs: "Load logs",
     copy: "Copy",
     copy_link: "Copy link",
@@ -312,6 +317,11 @@ const I18N = {
     last_error: "Последняя ошибка",
     providers: "Провайдеры",
     recent_logs: "Логи",
+    bot_docs: "Как работает",
+    bot_docs_missing: "Для этого бота описание не задано.",
+    bot_docs_how: "Как работает",
+    bot_docs_can: "Может",
+    bot_docs_cannot: "Не может",
     load_logs: "Загрузить",
     copy: "Копировать",
     copy_link: "Скопировать ссылку",
@@ -919,6 +929,11 @@ function renderBotsTable(data) {
     tr.classList.add("rowClickable");
     if (state.selectedUnit === bot.unit) tr.classList.add("rowSelected");
 
+    const activeState = String(bot.systemd && bot.systemd.activeState || "");
+    if (activeState === "active") tr.classList.add("rowStateActive");
+    else if (activeState === "activating" || activeState === "deactivating" || activeState === "reloading") tr.classList.add("rowStateTransition");
+    else tr.classList.add("rowStateInactive");
+
     const usage24 = getUsageWindow(bot, "24h") || {};
     const lastAct = bot.usage ? bot.usage.lastActivityAt : null;
 
@@ -928,7 +943,7 @@ function renderBotsTable(data) {
     const primarySev = primaryIssue ? String(primaryIssue.severity || "").toLowerCase() : "";
 
     const dotClass = statusDotClass(bot);
-    const statusLabel = `${systemdActiveLabel(bot.systemd.activeState)}${bot.systemd.subState ? " (" + systemdSubLabel(bot.systemd.subState) + ")" : ""}`;
+    const statusLabel = `${systemdActiveLabel(activeState)}${bot.systemd.subState ? " (" + systemdSubLabel(bot.systemd.subState) + ")" : ""}`;
     const issueHtml = primaryMsg
       ? `<div class="issueLine ${primarySev === "error" ? "bad" : "warn"}">${escapeHtml(primaryMsg)}</div>`
       : "";
@@ -948,7 +963,6 @@ function renderBotsTable(data) {
     const actionsDiv = document.createElement("div");
     actionsDiv.className = "actions";
 
-    const activeState = bot.systemd.activeState;
     const canStop = activeState === "active" || activeState === "activating" || activeState === "deactivating";
     if (canStop) {
       actionsDiv.appendChild(makeActionBtn(t("action_stop"), "btnDanger", () => doAction(bot.unit, "stop")));
@@ -968,7 +982,7 @@ function renderBotsTable(data) {
 
     const errors24 = Number(usage24.errors) || 0;
     const restarts = Number(bot.systemd.nRestarts) || 0;
-    if (bot.systemd.activeState !== "active") tr.classList.add("rowBad");
+    if (activeState !== "active") tr.classList.add("rowBad");
     else if (worstHealthSeverity(issues) >= 2) tr.classList.add("rowBad");
     else if (errors24 > 0 || restarts > 0 || bot.systemd.subState !== "running" || worstHealthSeverity(issues) >= 1) tr.classList.add("rowWarn");
 
@@ -1539,6 +1553,51 @@ function renderDetailsMeta(bot) {
   }).join("");
 }
 
+function renderBotDocs(bot) {
+  const box = $("botDocsBox");
+  if (!box) return;
+
+  const docsAll = bot && bot.docs;
+  const lang = normalizeLang(state.ui.lang) || "en";
+  const doc = (docsAll && (docsAll[lang] || docsAll.en)) ? (docsAll[lang] || docsAll.en) : null;
+
+  if (!doc || typeof doc !== "object") {
+    box.innerHTML = `<div class="muted">${escapeHtml(t("bot_docs_missing"))}</div>`;
+    return;
+  }
+
+  const sections = [];
+
+  const how = String(doc.how || "").trim();
+  if (how) {
+    const html = escapeHtml(how).replaceAll("\n", "<br>");
+    sections.push(
+      `<div class="botDocSection"><div class="botDocTitle">${escapeHtml(t("bot_docs_how"))}</div><div class="botDocText">${html}</div></div>`
+    );
+  }
+
+  const can = Array.isArray(doc.can) ? doc.can.map(s => String(s || "").trim()).filter(Boolean) : [];
+  if (can.length) {
+    sections.push(
+      `<div class="botDocSection"><div class="botDocTitle good">${escapeHtml(t("bot_docs_can"))}</div><ul class="botDocList">${can.map(s => `<li>${escapeHtml(s)}</li>`).join("")}</ul></div>`
+    );
+  }
+
+  const cannot = Array.isArray(doc.cannot) ? doc.cannot.map(s => String(s || "").trim()).filter(Boolean) : [];
+  if (cannot.length) {
+    sections.push(
+      `<div class="botDocSection"><div class="botDocTitle bad">${escapeHtml(t("bot_docs_cannot"))}</div><ul class="botDocList">${cannot.map(s => `<li>${escapeHtml(s)}</li>`).join("")}</ul></div>`
+    );
+  }
+
+  if (!sections.length) {
+    box.innerHTML = `<div class="muted">${escapeHtml(t("bot_docs_missing"))}</div>`;
+    return;
+  }
+
+  box.innerHTML = `<div class="botDocs">${sections.join("")}</div>`;
+}
+
 function renderDetails(bot) {
   $("detailTitle").textContent = bot.displayName || bot.unit;
   const sd = bot.systemd || {};
@@ -1589,6 +1648,7 @@ function renderDetails(bot) {
   document.body.classList.add("modalOpen");
 
   renderHealth(bot);
+  renderBotDocs(bot);
   renderSystemdBox(bot);
   ensureUnitDetails(bot.unit);
   renderUsageSummary(bot);

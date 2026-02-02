@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Bots Dashboard</title>
     <meta name="description" content="Bots dashboard: status, logs, and token/cost usage." />
-    <link rel="stylesheet" href="/styles.css?v=27" />
+    <link rel="stylesheet" href="/styles.css?v=29" />
   </head>
   <body>
     <noscript>
@@ -25,6 +25,7 @@
         <div class="controls">
           <a href="/vision.html" class="btn btnVisionFast" title="Open Vision (fast)" target="_blank">⚡ Vision</a>
           <a href="/vision-legacy.html" class="btn btnVision" title="Open Vision (legacy)" target="_blank">✨ Vision (legacy)</a>
+          <a href="https://fast.lucheestiy.com/vision" class="btn btnVisionFast" title="Open Terminal" target="_blank">⚡ Terminal</a>
           <select id="langSelect" class="select" aria-label="Language" data-i18n-aria-label="language">
             <option value="en">EN</option>
             <option value="ru">RU</option>
@@ -165,6 +166,11 @@
 
           <div class="detailBottomGrid">
             <div class="detailBlock detailBlockFull">
+              <h3 class="sectionTitle" data-i18n="bot_docs">How it works</h3>
+              <div id="botDocsBox" class="infoBox"></div>
+            </div>
+
+            <div class="detailBlock detailBlockFull">
               <h3 class="sectionTitle" data-i18n="unit_details">Unit details</h3>
               <div id="unitDetailsActions" class="controls unitDetailsActions"></div>
               <div id="unitDetailsBox" class="infoBox"></div>
@@ -227,6 +233,6 @@
       </div>
     </div>
 
-    <script src="/app.js?v=25"></script>
+    <script src="/app.js?v=27"></script>
   </body>
 </html>

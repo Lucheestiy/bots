@@ -147,6 +147,11 @@ const I18N = {
     usage_summary: "Usage Summary",
     last_error: "Last Error",
     providers: "Providers",
+    bot_docs: "How it works",
+    bot_docs_missing: "No description configured for this bot.",
+    bot_docs_how: "How it works",
+    bot_docs_can: "Can",
+    bot_docs_cannot: "Cannot",
     recent_logs: "System Logs",
     load_logs: "Load logs",
     copy: "Copy",
@@ -290,6 +295,11 @@ const I18N = {
     usage_summary: "Сводка",
     last_error: "Последняя ошибка",
     providers: "Провайдеры",
+    bot_docs: "Как работает",
+    bot_docs_missing: "Для этого бота описание не задано.",
+    bot_docs_how: "Как работает",
+    bot_docs_can: "Может",
+    bot_docs_cannot: "Не может",
     recent_logs: "Логи",
     load_logs: "Загрузить",
     copy: "Копировать",
@@ -949,6 +959,7 @@ function renderDetails(bot) {
   $("detailTitle").textContent = bot.displayName || bot.unit;
   renderDetailsMeta(bot);
   renderQuickActions(bot);
+  renderBotDocs(bot);
   renderHealth(bot);
   renderSystemdBox(bot);
   renderUsageSummary(bot);
@@ -1001,6 +1012,53 @@ function renderQuickActions(bot) {
     await navigator.clipboard.writeText(window.location.href);
     showToast(t("copied"), "success");
   }));
+}
+
+function renderBotDocs(bot) {
+  const titleEl = $("botDocsTitle");
+  if (titleEl) titleEl.textContent = t("bot_docs");
+  const box = $("botDocsBox");
+  if (!box) return;
+
+  const docsAll = bot && bot.docs;
+  const lang = normalizeLang(state.ui.lang) || "en";
+  const doc = (docsAll && (docsAll[lang] || docsAll.en)) ? (docsAll[lang] || docsAll.en) : null;
+
+  if (!doc || typeof doc !== "object") {
+    box.innerHTML = `<div class="muted">${escapeHtml(t("bot_docs_missing"))}</div>`;
+    return;
+  }
+
+  const sections = [];
+
+  const how = String(doc.how || "").trim();
+  if (how) {
+    const html = escapeHtml(how).replaceAll("\n", "<br>");
+    sections.push(
+      `<div class="botDocSection"><div class="botDocTitle">${escapeHtml(t("bot_docs_how"))}</div><div class="botDocText">${html}</div></div>`
+    );
+  }
+
+  const can = Array.isArray(doc.can) ? doc.can.map(s => String(s || "").trim()).filter(Boolean) : [];
+  if (can.length) {
+    sections.push(
+      `<div class="botDocSection"><div class="botDocTitle good">${escapeHtml(t("bot_docs_can"))}</div><ul class="botDocList">${can.map(s => `<li>${escapeHtml(s)}</li>`).join("")}</ul></div>`
+    );
+  }
+
+  const cannot = Array.isArray(doc.cannot) ? doc.cannot.map(s => String(s || "").trim()).filter(Boolean) : [];
+  if (cannot.length) {
+    sections.push(
+      `<div class="botDocSection"><div class="botDocTitle bad">${escapeHtml(t("bot_docs_cannot"))}</div><ul class="botDocList">${cannot.map(s => `<li>${escapeHtml(s)}</li>`).join("")}</ul></div>`
+    );
+  }
+
+  if (!sections.length) {
+    box.innerHTML = `<div class="muted">${escapeHtml(t("bot_docs_missing"))}</div>`;
+    return;
+  }
+
+  box.innerHTML = `<div class="botDocs">${sections.join("")}</div>`;
 }
 
 function makeBtn(text, className, onClick) {

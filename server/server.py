@@ -957,6 +957,101 @@ def _load_config(path: Path) -> dict[str, object]:
     return raw
 
 
+def _normalize_telegram_handle(raw: object) -> str | None:
+    if not isinstance(raw, str):
+        return None
+    s = raw.strip()
+    if not s:
+        return None
+    s = "@" + s.lstrip("@")
+    if s == "@":
+        return None
+    return s
+
+
+def _normalize_bot_doc_lang(raw: object) -> dict[str, object] | None:
+    if not isinstance(raw, dict):
+        return None
+
+    how = str(raw.get("how") or "").strip()
+
+    can_raw = raw.get("can")
+    can: list[str] = []
+    if isinstance(can_raw, list):
+        for item in can_raw:
+            s = str(item or "").strip()
+            if s:
+                can.append(s)
+
+    cannot_raw = raw.get("cannot")
+    cannot: list[str] = []
+    if isinstance(cannot_raw, list):
+        for item in cannot_raw:
+            s = str(item or "").strip()
+            if s:
+                cannot.append(s)
+
+    out: dict[str, object] = {}
+    if how:
+        out["how"] = how
+    if can:
+        out["can"] = can
+    if cannot:
+        out["cannot"] = cannot
+    return out or None
+
+
+def _normalize_bot_docs(raw: object) -> dict[str, object] | None:
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise ValueError("docs must be an object with 'en'/'ru' keys")
+    out: dict[str, object] = {}
+    en = _normalize_bot_doc_lang(raw.get("en"))
+    ru = _normalize_bot_doc_lang(raw.get("ru"))
+    if en:
+        out["en"] = en
+    if ru:
+        out["ru"] = ru
+    return out or None
+
+
+def _parse_bot_mappings(cfg: dict[str, object]) -> dict[str, dict[str, object]]:
+    raw = cfg.get("botMappings")
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError("config.botMappings must be an object")
+
+    out: dict[str, dict[str, object]] = {}
+    for k, v in raw.items():
+        unit = str(k).strip()
+        if not unit:
+            continue
+
+        if isinstance(v, str):
+            display_name = v.strip()
+            telegram_handle = None
+            docs = None
+        elif isinstance(v, dict):
+            display_name = str(v.get("displayName") or "").strip()
+            telegram_handle = _normalize_telegram_handle(v.get("telegramHandle"))
+            docs = _normalize_bot_docs(v.get("docs"))
+        else:
+            raise ValueError(f"config.botMappings[{unit}] must be a string or object")
+
+        entry: dict[str, object] = {}
+        if display_name:
+            entry["displayName"] = display_name
+        if telegram_handle:
+            entry["telegramHandle"] = telegram_handle
+        if docs:
+            entry["docs"] = docs
+        if entry:
+            out[unit] = entry
+    return out
+
+
 def _parse_unit_specs(cfg: dict[str, object]) -> tuple[list[UnitSpec], dict[str, UnitSpec]]:
     units_raw = cfg.get("units") or []
     if not isinstance(units_raw, list):
@@ -1003,6 +1098,7 @@ def _build_payload(cfg: dict[str, object]) -> dict[str, object]:
     timezone_name = str(cfg.get("timezone") or "America/New_York")
     tz = ZoneInfo(timezone_name)
     now = _utcnow()
+    bot_mappings = _parse_bot_mappings(cfg)
     specs, _ = _parse_unit_specs(cfg)
 
     props = [
@@ -1037,6 +1133,18 @@ def _build_payload(cfg: dict[str, object]) -> dict[str, object]:
         totals["botsTotal"] += 1
         show = _systemctl_show(spec, props)
         botdef = _detect_bot_def(spec, show)
+        override = bot_mappings.get(spec.unit)
+        bot_docs = override.get("docs") if override else None
+        if override:
+            botdef = BotDef(
+                unit=botdef.unit,
+                display_name=str(override.get("displayName") or botdef.display_name),
+                telegram_handle=str(override.get("telegramHandle") or botdef.telegram_handle or "") or None,
+                bot_type=botdef.bot_type,
+                profile=botdef.profile,
+                gateway_port=botdef.gateway_port,
+                state_dir=botdef.state_dir,
+            )
 
         active_state = (show.get("ActiveState") or "").strip()
         sub_state = (show.get("SubState") or "").strip()
@@ -1106,6 +1214,7 @@ def _build_payload(cfg: dict[str, object]) -> dict[str, object]:
                 "user": spec.user,
                 "displayName": botdef.display_name,
                 "telegramHandle": botdef.telegram_handle,
+                "docs": bot_docs,
                 "type": botdef.bot_type,
                 "profile": botdef.profile,
                 "gatewayPort": botdef.gateway_port,

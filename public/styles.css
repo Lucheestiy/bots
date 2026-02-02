@@ -133,6 +133,36 @@ tbody tr:hover{background:rgba(94,234,212,.06)}
 tbody tr.rowClickable td:not(:last-child){cursor:pointer}
 tbody tr.rowSelected{outline:1px solid rgba(94,234,212,.35);outline-offset:-1px}
 
+tbody tr.rowStateActive td:first-child,
+tbody tr.rowStateInactive td:first-child,
+tbody tr.rowStateTransition td:first-child{
+  position:relative;
+}
+tbody tr.rowStateActive td:first-child{
+  background:linear-gradient(90deg, rgba(34,197,94,.14) 0%, rgba(34,197,94,0) 180px);
+}
+tbody tr.rowStateInactive td:first-child{
+  background:linear-gradient(90deg, rgba(239,68,68,.14) 0%, rgba(239,68,68,0) 180px);
+}
+tbody tr.rowStateTransition td:first-child{
+  background:linear-gradient(90deg, rgba(245,158,11,.14) 0%, rgba(245,158,11,0) 180px);
+}
+tbody tr.rowStateActive td:first-child::before,
+tbody tr.rowStateInactive td:first-child::before,
+tbody tr.rowStateTransition td:first-child::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:0;
+  bottom:0;
+  width:6px;
+  pointer-events:none;
+  opacity:.95;
+}
+tbody tr.rowStateActive td:first-child::before{background:rgba(34,197,94,.85)}
+tbody tr.rowStateInactive td:first-child::before{background:rgba(239,68,68,.85)}
+tbody tr.rowStateTransition td:first-child::before{background:rgba(245,158,11,.85)}
+
 .statusDot{
   display:inline-block;
   width:9px;height:9px;border-radius:999px;
@@ -426,6 +456,27 @@ tbody tr.rowSelected{outline:1px solid rgba(94,234,212,.35);outline-offset:-1px}
   line-height:1.35;
   overflow:auto;
 }
+.botDocs{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.botDocSection{min-width:0}
+.botDocTitle{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:650;
+  margin-bottom:6px;
+}
+.botDocTitle.good{color:rgba(174,255,208,.95)}
+.botDocTitle.bad{color:var(--bad)}
+.botDocText{color:var(--text);white-space:pre-wrap}
+.botDocList{
+  margin:0;
+  padding-left:18px;
+  line-height:1.35;
+}
+.botDocList li{margin:3px 0}
 .infoRow{
   display:flex;
   justify-content:space-between;
