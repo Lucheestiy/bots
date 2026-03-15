@@ -5,31 +5,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Bots Dashboard</title>
     <meta name="description" content="Bots dashboard: status, logs, and token/cost usage." />
-    <link rel="stylesheet" href="/styles.css?v=40" />
+    <link rel="stylesheet" href="/styles.css?v=73" />
           <!-- Favicons -->
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=2">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=2">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2">
 </head>
   <body>
+    <!-- Animated Aurora Background -->
+    <div class="auroraCanvas" aria-hidden="true">
+      <div class="auroraOrb"></div>
+      <div class="auroraOrb"></div>
+      <div class="auroraOrb"></div>
+    </div>
+
     <noscript>
       <div class="noscript" data-i18n="noscript">JavaScript is required for this dashboard.</div>
     </noscript>
 
-    <header class="header">
+    <header class="header headerGradient">
       <div>
         <h1 class="title" id="pageTitle">Bots Dashboard</h1>
         <div class="subtitle" id="subtitle" data-i18n="subtitle">Status • Tokens • Cost • Logs • Controls</div>
       </div>
       <div class="meta">
+        <span id="issuesBadge" class="issuesBadge" hidden></span>
         <div class="updated">
           <div id="updatedAt"><span class="connDot" id="connDot"></span>Loading…</div>
           <div id="relativeTime" class="muted"></div>
         </div>
         <div class="controls">
-          <a href="/vision.html" class="btn btnVisionFast" title="Open Vision (fast)" target="_blank">⚡ Vision</a>
-          <a href="/vision-legacy.html" class="btn btnVision" title="Open Vision (legacy)" target="_blank">✨ Vision (legacy)</a>
-          <a href="https://fast.lucheestiy.com/vision" class="btn btnVisionFast" title="Open Terminal" target="_blank">⚡ Terminal</a>
+          <button id="cmdKBtn" class="btnCmdK" title="Command palette (Ctrl+K)">&#128269; Search… <kbd class="kbd">⌘K</kbd></button>
+          <button id="notifBtn" class="btn btnNotif" title="Enable browser notifications">&#128276;</button>
+          <a href="https://fast.lucheestiy.com/vision" class="btn btnVisionFast" title="Open Terminal" target="_blank">&#9889; Terminal</a>
           <select id="langSelect" class="select" aria-label="Language" data-i18n-aria-label="language">
             <option value="en">EN</option>
             <option value="ru">RU</option>
@@ -45,10 +53,24 @@
       </div>
     </header>
 
+    <div id="statusStrip" class="statusStrip" hidden></div>
+
     <main class="main">
       <section id="errors" class="errors" hidden></section>
 
       <section class="summary" id="summary"></section>
+
+      <section id="fleetSection">
+        <div class="fleetBarLabel">
+          <span class="fleetTitle" data-i18n="fleet_health">Fleet Health</span>
+          <span class="fleetCounts" id="fleetCounts"></span>
+        </div>
+        <div class="fleetBar" id="fleetBar"></div>
+      </section>
+
+      <section id="insightsSection" hidden></section>
+
+      <section id="filterChipsSection" class="filterChips"></section>
 
       <section class="card">
         <div class="cardHeader">
@@ -95,14 +117,10 @@
             <thead>
               <tr>
                 <th style="width:32px;padding-right:0"><input type="checkbox" class="rowCheckbox" id="selectAllCheckbox" title="Select all" /></th>
-                <th data-i18n="th_bot">Bot</th>
+                <th data-i18n="th_bot" data-sort="name" class="sortable">Bot</th>
                 <th data-i18n="th_status">Status</th>
-                <th data-i18n="th_enabled">Enabled</th>
-                <th data-i18n="th_uptime">Uptime</th>
-                <th data-i18n="th_last_activity">Last activity</th>
-                <th class="num" data-i18n="th_tokens24h">Tokens (24h)</th>
-                <th class="num" data-i18n="th_cost24h">Cost (24h)</th>
-                <th class="num" data-i18n="th_errors24h">Errors (24h)</th>
+                <th data-i18n="th_uptime" data-sort="uptime_desc" class="sortable">Uptime</th>
+                <th class="num sortable" data-i18n="th_tokens24h" data-sort="tokens24h_desc">Usage (24h)</th>
                 <th data-i18n="th_actions">Actions</th>
               </tr>
             </thead>
@@ -155,6 +173,22 @@
             </div>
           </div>
 
+          <div id="activityHeatmapSection" class="detailBlock detailBlockFull" hidden>
+            <div class="sectionTitleRow">
+              <h3 class="sectionTitle" data-i18n="activity_heatmap">24h Activity</h3>
+              <div class="heatmapLegend">
+                <span>less</span>
+                <span class="heatmapCell h0"></span>
+                <span class="heatmapCell h1"></span>
+                <span class="heatmapCell h2"></span>
+                <span class="heatmapCell h3"></span>
+                <span class="heatmapCell h4"></span>
+                <span>more</span>
+              </div>
+            </div>
+            <div id="activityHeatmap" class="heatmapWrap"></div>
+          </div>
+
           <div class="detailCharts">
             <div class="detailChartsHeader">
               <h3 class="sectionTitle" id="usageChartTitle">Usage</h3>
@@ -189,19 +223,11 @@
           </div>
 
           <div class="detailBottomGrid">
-            <div class="detailBlock detailBlockFull">
-              <h3 class="sectionTitle" data-i18n="bot_docs">How it works</h3>
-              <div id="botDocsBox" class="infoBox"></div>
-            </div>
-
-            <div class="detailBlock detailBlockFull">
-              <h3 class="sectionTitle" data-i18n="unit_details">Unit details</h3>
-              <div id="unitDetailsActions" class="controls unitDetailsActions"></div>
-              <div id="unitDetailsBox" class="infoBox"></div>
-            </div>
-
             <div class="detailBlock">
-              <h3 class="sectionTitle" data-i18n="providers">Providers</h3>
+              <div class="sectionTitleRow">
+                <h3 class="sectionTitle" data-i18n="providers">Providers</h3>
+                <span class="sectionTitleMeta" id="providersTotalCost"></span>
+              </div>
               <div class="providersLayout">
                 <div id="providersList" class="providersList"></div>
                 <div class="providerChartWrap">
@@ -211,11 +237,31 @@
             </div>
 
             <div class="detailBlock">
+              <h3 class="sectionTitle" data-i18n="bot_docs">How it works</h3>
+              <div id="botDocsBox" class="infoBox"></div>
+            </div>
+
+            <div class="detailBlock detailBlockFull">
+              <div class="sectionTitleRow">
+                <h3 class="sectionTitle" id="fieldGuideTitle">Field Guide</h3>
+                <button id="fieldGuideToggle" class="btn btnSecondary btnSmall">Expand</button>
+              </div>
+              <div id="fieldGuideBox" class="fieldGuide" hidden></div>
+            </div>
+
+            <div class="detailBlock detailBlockFull">
+              <h3 class="sectionTitle" data-i18n="unit_details">Unit details</h3>
+              <div id="unitDetailsActions" class="controls unitDetailsActions"></div>
+              <div id="unitDetailsBox" class="infoBox"></div>
+            </div>
+
+            <div class="detailBlock detailBlockFull">
               <h3 class="sectionTitle" data-i18n="recent_logs">Recent logs</h3>
               <div class="logControls">
                 <button id="loadLogsBtn" class="btn btnSecondary" data-i18n="load_logs">Load logs</button>
                 <button id="followLogsBtn" class="btn btnFollow" data-i18n="follow_logs" title="Auto-refresh logs every 5s">Follow</button>
                 <button id="copyLogsBtn" class="btn btnSecondary" data-i18n="copy">Copy</button>
+                <button id="downloadLogsBtn" class="btn btnSecondary" title="Download logs">↓</button>
                 <label class="checkboxLabel" title="Auto-load logs on open" data-i18n-title="auto_load_logs_title">
                   <input type="checkbox" id="autoLoadLogs" class="checkbox" />
                   <span data-i18n="auto_load_logs">Auto</span>
@@ -243,6 +289,7 @@
                   data-i18n-placeholder="log_search_placeholder"
                   data-i18n-aria-label="log_search_aria"
                 />
+                <span id="logMatchBadge" class="logMatchBadge" hidden></span>
               </div>
               <pre id="logsPre" class="logs" data-i18n="logs_hint">Click "Load logs".</pre>
             </div>
@@ -264,6 +311,34 @@
     </div>
 
     <div class="toastContainer" id="toastContainer"></div>
+    <div id="hoverPreview" class="hoverPreview" hidden></div>
+
+    <!-- Command Palette -->
+    <div id="cmdPalette" class="cmdPalette" hidden>
+      <div class="cmdPaletteBg" id="cmdPaletteBg"></div>
+      <div class="cmdPaletteCard">
+        <div class="cmdPaletteInputWrap">
+          <span class="cmdPaletteIcon">&#128269;</span>
+          <input
+            id="cmdPaletteInput"
+            class="cmdPaletteInput"
+            type="text"
+            placeholder="Search bots, actions…"
+            data-i18n-placeholder="cmd_search_placeholder"
+            autocomplete="off"
+            autocapitalize="none"
+            spellcheck="false"
+          />
+          <kbd class="cmdPaletteKbd">Esc</kbd>
+        </div>
+        <div id="cmdPaletteResults" class="cmdPaletteResults"></div>
+        <div class="cmdPaletteFooter">
+          <span><kbd class="cmdPaletteKbd cmdPaletteKbdSmall">&#8593;&#8595;</kbd> <span data-i18n="cmd_navigate">navigate</span></span>
+          <span><kbd class="cmdPaletteKbd cmdPaletteKbdSmall">&#9166;</kbd> <span data-i18n="cmd_select">select</span></span>
+          <span><kbd class="cmdPaletteKbd cmdPaletteKbdSmall">Esc</kbd> <span data-i18n="cmd_close">close</span></span>
+        </div>
+      </div>
+    </div>
 
     <div id="shortcutsOverlay" class="shortcutsOverlay" hidden>
       <div class="shortcutsBg" id="shortcutsBg"></div>
@@ -276,6 +351,6 @@
       </div>
     </div>
 
-    <script src="/app.js?v=34"></script>
+    <script src="/app.js?v=59"></script>
   </body>
 </html>

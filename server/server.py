@@ -126,25 +126,27 @@ class UnitSpec:
     uid: int | None = None
 
 
-def _resolve_user_uid(spec: UnitSpec) -> tuple[str, int]:
+def _resolve_user_uid_gid(spec: UnitSpec) -> tuple[str, int, int]:
     if spec.user:
-        uid = int(spec.uid) if spec.uid is not None else int(pwd.getpwnam(spec.user).pw_uid)
-        return (spec.user, uid)
+        pw = pwd.getpwnam(spec.user)
+        uid = int(spec.uid) if spec.uid is not None else int(pw.pw_uid)
+        return (spec.user, uid, int(pw.pw_gid))
     if spec.uid is not None:
-        user = str(pwd.getpwuid(int(spec.uid)).pw_name)
-        return (user, int(spec.uid))
+        pw = pwd.getpwuid(int(spec.uid))
+        return (str(pw.pw_name), int(spec.uid), int(pw.pw_gid))
     raise ValueError(f"user unit requires user or uid: {spec.unit}")
 
 
 def _systemctl_cmd(spec: UnitSpec, args: list[str]) -> list[str]:
     if spec.scope == "user":
-        user, uid = _resolve_user_uid(spec)
+        user, uid, gid = _resolve_user_uid_gid(spec)
         runtime_dir = f"/run/user/{uid}"
         bus_addr = f"unix:path={runtime_dir}/bus"
         return [
-            "sudo",
-            "-u",
-            user,
+            "setpriv",
+            f"--reuid={uid}",
+            f"--regid={gid}",
+            "--init-groups",
             "env",
             f"XDG_RUNTIME_DIR={runtime_dir}",
             f"DBUS_SESSION_BUS_ADDRESS={bus_addr}",
@@ -157,12 +159,13 @@ def _systemctl_cmd(spec: UnitSpec, args: list[str]) -> list[str]:
 
 def _journalctl_cmd(spec: UnitSpec, args: list[str]) -> list[str]:
     if spec.scope == "user":
-        user, uid = _resolve_user_uid(spec)
+        user, uid, gid = _resolve_user_uid_gid(spec)
         runtime_dir = f"/run/user/{uid}"
         return [
-            "sudo",
-            "-u",
-            user,
+            "setpriv",
+            f"--reuid={uid}",
+            f"--regid={gid}",
+            "--init-groups",
             "env",
             f"XDG_RUNTIME_DIR={runtime_dir}",
             "journalctl",
@@ -911,6 +914,20 @@ class _UsageCacheEntry:
                 }
             )
 
+        # Hourly buckets for the last 24 hours
+        hourly24h: list[dict[str, object]] = []
+        for i in range(23, -1, -1):
+            hr_key = int((now - _dt.timedelta(hours=i)).timestamp() // 3600)
+            b = self.agg.perHourUTC.get(hr_key) or _UsageBucket()
+            hourly24h.append(
+                {
+                    "tokens": int(round(b.tokens)),
+                    "costUSD": float(b.costUSD),
+                    "requests": int(round(b.requests)),
+                    "errors": int(round(b.errors)),
+                }
+            )
+
         by_provider_out: dict[str, dict[str, object]] = {}
         for provider, st in self.agg.byProvider.items():
             models_out: dict[str, dict[str, object]] = {}
@@ -957,6 +974,7 @@ class _UsageCacheEntry:
             "lastActivityAt": self.agg.lastActivityAt.isoformat().replace("+00:00", "Z") if self.agg.lastActivityAt else None,
             "lastError": last_error,
             "daily30d": daily30d,
+            "hourly24h": hourly24h,
         }
 
 

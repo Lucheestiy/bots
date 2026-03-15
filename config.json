@@ -3,7 +3,7 @@
   "timezone": "America/New_York",
   "botMappings": {
     "clawdbot-minimax-telegram.service": {
-      "displayName": "ClawdMiniMax",
+      "displayName": "Codex 3 Alena",
       "telegramHandle": "@ClawdMinMaxBot",
       "docs": {
         "en": {
@@ -33,7 +33,7 @@
       }
     },
     "clawdbot-original-telegram.service": {
-      "displayName": "Clawd",
+      "displayName": "Clawd Original",
       "telegramHandle": "@ClawdOriginalBot",
       "docs": {
         "en": {
@@ -61,7 +61,7 @@
       }
     },
     "clawdbot-moltbot-telegram.service": {
-      "displayName": "GPT 5.2 Molt",
+      "displayName": "Codex 5 Alena",
       "telegramHandle": "@GPTMoltbot",
       "docs": {
         "en": {
@@ -89,7 +89,7 @@
       }
     },
     "clawdbot-smartmolt-telegram.service": {
-      "displayName": "GPT5.2 Molt Mikhail",
+      "displayName": "GPT 5.3-Codex OpenClaw Mikhail",
       "telegramHandle": "@GPTSmartMoltBot",
       "docs": {
         "en": {
@@ -117,7 +117,7 @@
       }
     },
     "clawdbot-kimimolty-telegram.service": {
-      "displayName": "Kimi K2.5 Molt",
+      "displayName": "Kimi K2.5 OpenClaw Alena",
       "telegramHandle": "@KimiMoltyBot",
       "docs": {
         "en": {
@@ -147,7 +147,7 @@
       }
     },
     "cli-bridge-gateway-claude.service": {
-      "displayName": "ClaudRegular",
+      "displayName": "Claude Regular",
       "telegramHandle": "@ClaudeLuchBot",
       "docs": {
         "en": {
@@ -179,7 +179,7 @@
       }
     },
     "cli-bridge-gateway-clawdm.service": {
-      "displayName": "Codex 2",
+      "displayName": "Codex 2 Alena",
       "telegramHandle": "@ClawdMBot",
       "docs": {
         "en": {
@@ -209,7 +209,7 @@
       }
     },
     "cli-bridge-gateway-gemini-yolo.service": {
-      "displayName": "Gemini Yolo CLI",
+      "displayName": "Gemini Yolo CLI Alena",
       "telegramHandle": "@GeminiLuchYoloBot",
       "docs": {
         "en": {
@@ -237,7 +237,7 @@
       }
     },
     "cli-bridge-gateway-gptmolt.service": {
-      "displayName": "GPT 5.2 Molt",
+      "displayName": "Codex 5 Alena",
       "telegramHandle": "@GPTMoltbot",
       "docs": {
         "en": {
@@ -267,7 +267,7 @@
       }
     },
     "cli-bridge-gateway-lucheest.service": {
-      "displayName": "Codex 1",
+      "displayName": "Codex 1 Alena",
       "telegramHandle": "@LucheestBot",
       "docs": {
         "en": {
@@ -295,7 +295,7 @@
       }
     },
     "droidminimaxbot-telegram.service": {
-      "displayName": "Droid CLI Minimax",
+      "displayName": "Droid MiniMax Mikhail",
       "telegramHandle": "@droidminimaxbot",
       "docs": {
         "en": {
@@ -323,7 +323,7 @@
       }
     },
     "kimi-cli-gateway.service": {
-      "displayName": "KimiCLI",
+      "displayName": "KimiCLI Alena",
       "telegramHandle": "@Kimiclibot",
       "docs": {
         "en": {
@@ -351,7 +351,7 @@
       }
     },
     "cli-bridge-gateway-claude-minimax.service": {
-      "displayName": "Claude MiniMax Bypass CLI",
+      "displayName": "Claude Minimax Bypass CLI",
       "telegramHandle": "@ClaudeMinimaxBot",
       "docs": {
         "en": {
@@ -405,14 +405,44 @@
           ]
         }
       }
+    },
+    "cli-bridge-gateway-gptcli.service": {
+      "displayName": "Codex 6 Alena",
+      "telegramHandle": "@GPTCLI2Bot"
+    },
+    "cli-bridge-gateway-gptcli3.service": {
+      "displayName": "GPT 5.3-Codex CLI 3 Bot Mikhail",
+      "telegramHandle": "@GPTCLI3Bot"
+    },
+    "clawdbot-minimax2-telegram.service": {
+      "displayName": "OpenClaw MiniMax Mikhail",
+      "telegramHandle": "@ClawdMinMax2Bot"
+    },
+    "droidminimax2bot-telegram.service": {
+      "displayName": "Codex 4 Alena",
+      "telegramHandle": "@droidminimax2bot"
+    },
+    "claudeminimax2bot-telegram.service": {
+      "displayName": "Claude MiniMax Mikhail",
+      "telegramHandle": "@ClaudeMiniMax2Bot"
     }
   },
   "units": [
-    "clawdbot-original-telegram.service",
+    "cli-bridge-gateway-lucheest.service",
+    "cli-bridge-gateway-clawdm.service",
     "clawdbot-minimax-telegram.service",
+    "droidminimax2bot-telegram.service",
+    "cli-bridge-gateway-gptcli.service",
+    "cli-bridge-gateway-gptmolt.service",
+    "cli-bridge-gateway-gemini-yolo.service",
     "clawdbot-kimimolty-telegram.service",
-    "clawdbot-moltbot-telegram.service",
+    "kimi-cli-gateway.service",
+    "clawdbot-minimax2-telegram.service",
     "clawdbot-smartmolt-telegram.service",
+    "droidminimaxbot-telegram.service",
+    "claudeminimax2bot-telegram.service",
+    "cli-bridge-gateway-gptcli3.service",
+    "clawdbot-original-telegram.service",
     "cli-bridge-gateway-claude.service",
     {
       "scope": "user",
@@ -423,12 +453,6 @@
       "scope": "user",
       "unit": "cli-bridge-gateway-claude-minimax.service",
       "user": "web"
-    },
-    "cli-bridge-gateway-clawdm.service",
-    "cli-bridge-gateway-gemini-yolo.service",
-    "cli-bridge-gateway-gptmolt.service",
-    "cli-bridge-gateway-lucheest.service",
-    "kimi-cli-gateway.service",
-    "droidminimaxbot-telegram.service"
+    }
   ]
 }

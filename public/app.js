@@ -2,6 +2,7 @@
 
 const state = {
   data: null,
+  prevData: null,
   selectedUnit: null,
   visibleUnits: [],
   auto: true,
@@ -12,6 +13,7 @@ const state = {
   connOnline: true,
   countdownTimer: null,
   countdownStart: 0,
+  chipFilter: "all",
   ui: {
     filter: "",
     show: "all",
@@ -220,6 +222,7 @@ const I18N = {
     summary_tokens_sub: "{requests} requests",
     summary_cost24h: "Cost (24h)",
     summary_cost_sub: "USD (from transcripts)",
+    summary_cost_monthly: "~{monthly}/mo projected",
     summary_errors24h: "Errors (24h)",
     summary_errors_sub: "stopReason=error",
     action_stop: "Stop",
@@ -299,6 +302,62 @@ const I18N = {
     conn_online: "Connected",
     conn_offline: "Disconnected",
     legend_errors_day: "Errors/day",
+    no_bots_match: "No bots match your filters.",
+    log_matches: "{n} matches",
+    data_from: "Data from {time}",
+    fg_title: "Field Guide",
+    fg_expand: "Expand",
+    fg_collapse: "Collapse",
+    fleet_health: "Fleet Health",
+    chip_all: "All",
+    chip_active: "Active",
+    chip_inactive: "Inactive",
+    chip_issues: "Issues",
+    chip_clawdbot: "Clawdbot",
+    chip_droid: "Droid",
+    status_went_down: "{name} went down",
+    status_came_up: "{name} came back up",
+    status_restarting: "{name} is restarting",
+    trend_up: "+{pct}%",
+    trend_down: "{pct}%",
+    insights_title: "Fleet Insights",
+    insights_top_spender: "Top spender (24h)",
+    insights_daily_avg: "Daily avg cost",
+    insights_monthly_proj: "Monthly projection",
+    insights_error_rate: "Error rate (24h)",
+    insights_most_active: "Most active (24h)",
+    insights_longest_uptime: "Longest uptime",
+    insights_of_requests: "of {total} requests",
+    notif_enable: "Notifications",
+    notif_enabled: "Notifications enabled",
+    notif_denied: "Notifications blocked by browser",
+    sc_cmd_palette: "Command palette",
+    cmd_search_placeholder: "Search bots, actions\u2026",
+    cmd_no_results: "No results found",
+    cmd_group_bots: "Bots",
+    cmd_group_actions: "Actions",
+    cmd_group_quick: "Quick Actions",
+    cmd_refresh: "Refresh data",
+    cmd_export: "Export CSV",
+    cmd_notif: "Toggle notifications",
+    cmd_filter: "Focus filter",
+    cmd_shortcuts: "Keyboard shortcuts",
+    cmd_compact: "Toggle compact view",
+    cmd_stop: "Stop {name}",
+    cmd_restart: "Restart {name}",
+    cmd_start: "Start {name}",
+    cmd_logs: "View logs for {name}",
+    cmd_navigate: "navigate",
+    cmd_select: "select",
+    cmd_close: "close",
+    strip_online: "{n}/{total} online",
+    strip_spent: "spent today",
+    strip_issues: "{n} issues",
+    strip_no_issues: "No issues",
+    strip_uptime: "fleet uptime",
+    activity_heatmap: "24h Activity",
+    activity_tokens: "{n} tokens",
+    activity_requests: "{n} requests",
   },
   ru: {
     app_title: "Панель ботов",
@@ -388,6 +447,7 @@ const I18N = {
     summary_tokens_sub: "{requests} запросов",
     summary_cost24h: "Стоимость (24ч)",
     summary_cost_sub: "USD (из транскриптов)",
+    summary_cost_monthly: "~{monthly}/мес прогноз",
     summary_errors24h: "Ошибки (24ч)",
     summary_errors_sub: "stopReason=error",
     action_stop: "Остановить",
@@ -467,6 +527,62 @@ const I18N = {
     conn_online: "Подключено",
     conn_offline: "Отключено",
     legend_errors_day: "Ошибки/день",
+    no_bots_match: "Нет ботов по вашему фильтру.",
+    log_matches: "{n} совпадений",
+    data_from: "Данные от {time}",
+    fg_title: "Справочник полей",
+    fg_expand: "Развернуть",
+    fg_collapse: "Свернуть",
+    fleet_health: "Здоровье флота",
+    chip_all: "Все",
+    chip_active: "Активные",
+    chip_inactive: "Неактивные",
+    chip_issues: "С проблемами",
+    chip_clawdbot: "Clawdbot",
+    chip_droid: "Droid",
+    status_went_down: "{name} остановлен",
+    status_came_up: "{name} снова работает",
+    status_restarting: "{name} перезапускается",
+    trend_up: "+{pct}%",
+    trend_down: "{pct}%",
+    insights_title: "Обзор флота",
+    insights_top_spender: "Макс. расходы (24ч)",
+    insights_daily_avg: "Средние расходы/день",
+    insights_monthly_proj: "Прогноз на месяц",
+    insights_error_rate: "Ошибки (24ч)",
+    insights_most_active: "Самый активный (24ч)",
+    insights_longest_uptime: "Макс. аптайм",
+    insights_of_requests: "из {total} запросов",
+    notif_enable: "Уведомления",
+    notif_enabled: "Уведомления включены",
+    notif_denied: "Уведомления заблокированы браузером",
+    sc_cmd_palette: "Палитра команд",
+    cmd_search_placeholder: "Поиск ботов, действий\u2026",
+    cmd_no_results: "Ничего не найдено",
+    cmd_group_bots: "Боты",
+    cmd_group_actions: "Действия",
+    cmd_group_quick: "Быстрые действия",
+    cmd_refresh: "Обновить данные",
+    cmd_export: "Экспорт CSV",
+    cmd_notif: "Уведомления",
+    cmd_filter: "Фокус на фильтр",
+    cmd_shortcuts: "Горячие клавиши",
+    cmd_compact: "Компактный вид",
+    cmd_stop: "Остановить {name}",
+    cmd_restart: "Перезапустить {name}",
+    cmd_start: "Запустить {name}",
+    cmd_logs: "Логи {name}",
+    cmd_navigate: "навигация",
+    cmd_select: "выбрать",
+    cmd_close: "закрыть",
+    strip_online: "{n}/{total} онлайн",
+    strip_spent: "потрачено сегодня",
+    strip_issues: "{n} проблем",
+    strip_no_issues: "Без проблем",
+    strip_uptime: "аптайм флота",
+    activity_heatmap: "Активность 24ч",
+    activity_tokens: "{n} токенов",
+    activity_requests: "{n} запросов",
   },
 };
 
@@ -598,7 +714,11 @@ function setLanguage(lang) {
   if (state.data) {
     renderHeader(state.data);
     renderSummary(state.data);
+    renderFleetBar(state.data);
+    renderInsights(state.data);
+    renderFilterChips(state.data);
     renderBotsTable(state.data);
+    renderIssuesBadge(state.data);
     if (state.selectedUnit) {
       const still = (state.data.bots || []).find(b => b.unit === state.selectedUnit);
       if (still) renderDetails(still);
@@ -641,7 +761,16 @@ function showConfirm(message, { confirmLabel = null, confirmClass = "btnDanger" 
 
 function closeConfirm(result) {
   const modal = $("confirmModal");
-  if (modal) modal.hidden = true;
+  if (modal) {
+    modal.classList.add("modalClosing");
+    const onEnd = () => {
+      modal.removeEventListener("animationend", onEnd);
+      modal.classList.remove("modalClosing");
+      modal.hidden = true;
+    };
+    modal.addEventListener("animationend", onEnd);
+    setTimeout(onEnd, 250);
+  }
 
   const resolve = state.confirm.resolve;
   state.confirm.resolve = null;
@@ -790,6 +919,279 @@ function statusDotClass(bot) {
   return "bad";
 }
 
+/* ── Animated number counter ── */
+function animateNumber(el, from, to, duration, formatFn) {
+  if (!el || !Number.isFinite(from) || !Number.isFinite(to) || from === to) {
+    if (el) el.textContent = formatFn(to);
+    return;
+  }
+  const start = performance.now();
+  const diff = to - from;
+  function tick(now) {
+    const elapsed = now - start;
+    const progress = Math.min(1, elapsed / duration);
+    // Ease-out cubic
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = from + diff * eased;
+    el.textContent = formatFn(current);
+    if (progress < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+function monthlyProjectionSub(dailyAll) {
+  if (!dailyAll || dailyAll.length < 2) return t("summary_cost_sub");
+  const recent = dailyAll.slice(-7);
+  const totalCost = recent.reduce((s, d) => s + (d.costUSD || 0), 0);
+  const avgDaily = totalCost / recent.length;
+  const monthly = avgDaily * 30;
+  return t("summary_cost_monthly", { monthly: fmtMoneyUsd(monthly) });
+}
+
+function renderInsights(data) {
+  const el = $("insightsSection");
+  if (!el) return;
+  const bots = Array.isArray(data.bots) ? data.bots : [];
+  if (!bots.length) { el.hidden = true; return; }
+  el.hidden = false;
+
+  const insights = [];
+
+  // Top spender (24h)
+  let topSpender = null;
+  let topCost = 0;
+  for (const bot of bots) {
+    const u24 = (bot.usage && bot.usage.windows && bot.usage.windows["24h"]) || {};
+    const cost = Number(u24.costUSD) || 0;
+    if (cost > topCost) { topCost = cost; topSpender = bot; }
+  }
+  if (topSpender && topCost > 0) {
+    insights.push({
+      icon: "\uD83D\uDCB0",
+      label: t("insights_top_spender"),
+      value: `${topSpender.displayName || topSpender.unit}`,
+      sub: fmtMoneyUsd(topCost),
+      klass: "insightCost",
+    });
+  }
+
+  // Daily average cost (from aggregate data)
+  const dailyAgg = {};
+  for (const bot of bots) {
+    const daily = bot.usage && bot.usage.daily30d ? bot.usage.daily30d : [];
+    for (const d of daily) {
+      if (!d.date) continue;
+      if (!dailyAgg[d.date]) dailyAgg[d.date] = { costUSD: 0, tokens: 0 };
+      dailyAgg[d.date].costUSD += (d.costUSD || 0);
+      dailyAgg[d.date].tokens += (d.tokens || 0);
+    }
+  }
+  const dailyAll = Object.entries(dailyAgg).sort((a, b) => a[0].localeCompare(b[0])).map(([, v]) => v);
+  if (dailyAll.length >= 3) {
+    const recent7 = dailyAll.slice(-7);
+    const avgCost = recent7.reduce((s, d) => s + d.costUSD, 0) / recent7.length;
+    const monthly = avgCost * 30;
+    insights.push({
+      icon: "\uD83D\uDCC8",
+      label: t("insights_monthly_proj"),
+      value: fmtMoneyUsd(monthly),
+      sub: `${fmtMoneyUsd(avgCost)}/day avg`,
+      klass: "insightProj",
+    });
+  }
+
+  // Error rate
+  const totals = data.totals || {};
+  const totalReq = Number(totals.requests24h) || 0;
+  const totalErr = Number(totals.errors24h) || 0;
+  if (totalReq > 0) {
+    const errPct = ((totalErr / totalReq) * 100).toFixed(1);
+    insights.push({
+      icon: totalErr > 0 ? "\u26A0\uFE0F" : "\u2705",
+      label: t("insights_error_rate"),
+      value: `${errPct}%`,
+      sub: t("insights_of_requests", { total: fmtInt(totalReq) }),
+      klass: totalErr > 0 ? "insightWarn" : "insightGood",
+    });
+  }
+
+  // Most active bot (24h tokens)
+  let mostActive = null;
+  let maxTokens = 0;
+  for (const bot of bots) {
+    const u24 = (bot.usage && bot.usage.windows && bot.usage.windows["24h"]) || {};
+    const tok = Number(u24.tokens) || 0;
+    if (tok > maxTokens) { maxTokens = tok; mostActive = bot; }
+  }
+  if (mostActive && maxTokens > 0) {
+    insights.push({
+      icon: "\u26A1",
+      label: t("insights_most_active"),
+      value: mostActive.displayName || mostActive.unit,
+      sub: `${fmtInt(maxTokens)} tokens`,
+      klass: "insightActive",
+    });
+  }
+
+  // Longest uptime
+  let longestBot = null;
+  let longestUp = 0;
+  for (const bot of bots) {
+    const up = Number(bot.systemd && bot.systemd.uptimeSeconds) || 0;
+    if (up > longestUp) { longestUp = up; longestBot = bot; }
+  }
+  if (longestBot && longestUp > 3600) {
+    insights.push({
+      icon: "\u23F1\uFE0F",
+      label: t("insights_longest_uptime"),
+      value: longestBot.displayName || longestBot.unit,
+      sub: fmtSeconds(longestUp),
+      klass: "insightUptime",
+    });
+  }
+
+  el.innerHTML = `
+    <div class="insightsHeader">
+      <span class="insightsTitle">${escapeHtml(t("insights_title"))}</span>
+    </div>
+    <div class="insightsGrid">
+      ${insights.map(i => `
+        <div class="insightCard ${i.klass || ""}">
+          <span class="insightIcon">${i.icon}</span>
+          <div class="insightBody">
+            <div class="insightLabel">${escapeHtml(i.label)}</div>
+            <div class="insightValue">${escapeHtml(i.value)}</div>
+            <div class="insightSub">${escapeHtml(i.sub || "")}</div>
+          </div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+/* ── System Status Strip ── */
+function renderStatusStrip(data) {
+  const el = $("statusStrip");
+  if (!el) return;
+  const bots = Array.isArray(data.bots) ? data.bots : [];
+  if (!bots.length) { el.hidden = true; return; }
+  el.hidden = false;
+
+  const totals = data.totals || {};
+  const online = Number(totals.botsActive) || 0;
+  const total = Number(totals.botsTotal) || 0;
+  const cost = Number(totals.cost24h) || 0;
+
+  // Count issues
+  let issueCount = 0;
+  for (const bot of bots) {
+    if (botHasIssues(bot)) issueCount++;
+  }
+
+  // Fleet average uptime
+  let totalUp = 0;
+  let activeCount = 0;
+  for (const bot of bots) {
+    const up = Number(bot.systemd && bot.systemd.uptimeSeconds) || 0;
+    if ((bot.systemd && bot.systemd.activeState) === "active" && up > 0) {
+      totalUp += up;
+      activeCount++;
+    }
+  }
+  const avgUptime = activeCount > 0 ? fmtSeconds(totalUp / activeCount) : "-";
+
+  const onlineDotCls = online === total ? "good" : online > 0 ? "warn" : "bad";
+  const issueDotCls = issueCount === 0 ? "good" : "warn";
+
+  // Build mini 24h sparkline from aggregate hourly data
+  const hourlyAgg = {};
+  for (const bot of bots) {
+    const hourly = (bot.usage && bot.usage.hourly24h) ? bot.usage.hourly24h : [];
+    for (const h of hourly) {
+      if (!h.hour) continue;
+      if (!hourlyAgg[h.hour]) hourlyAgg[h.hour] = 0;
+      hourlyAgg[h.hour] += (h.requests || 0);
+    }
+  }
+  const hourlyVals = Object.entries(hourlyAgg).sort((a, b) => a[0].localeCompare(b[0])).slice(-24).map(([, v]) => v);
+  let miniSparkHtml = "";
+  if (hourlyVals.length > 2) {
+    const maxH = Math.max(1, ...hourlyVals);
+    const bars = hourlyVals.map(v => {
+      const h = Math.max(1, Math.round((v / maxH) * 14));
+      return `<span style="display:inline-block;width:2px;height:${h}px;background:rgba(94,234,212,.5);border-radius:1px;vertical-align:bottom"></span>`;
+    }).join("");
+    miniSparkHtml = `<span style="display:inline-flex;align-items:flex-end;gap:1px;height:14px;margin-left:2px;vertical-align:middle">${bars}</span>`;
+  }
+
+  el.innerHTML = `
+    <div class="stripItem"><span class="stripDot ${onlineDotCls}"></span><span class="stripValue">${online}/${total}</span> online</div>
+    <div class="stripSep"></div>
+    <div class="stripItem"><span class="stripValue">${fmtMoneyUsd(cost)}</span> ${t("strip_spent")}</div>
+    <div class="stripSep"></div>
+    <div class="stripItem"><span class="stripDot ${issueDotCls}"></span>${issueCount > 0 ? `<span class="stripValue">${issueCount}</span> issues` : t("strip_no_issues")}</div>
+    <div class="stripSep"></div>
+    <div class="stripItem">${t("strip_uptime")}: <span class="stripValue">${avgUptime}</span></div>
+    ${miniSparkHtml ? `<div class="stripSep"></div><div class="stripItem">24h${miniSparkHtml}</div>` : ""}
+  `;
+}
+
+/* ── 24h Activity Heatmap ── */
+function renderActivityHeatmap(bot) {
+  const section = $("activityHeatmapSection");
+  const wrap = $("activityHeatmap");
+  if (!section || !wrap) return;
+
+  const hourly = (bot.usage && bot.usage.hourly24h) ? bot.usage.hourly24h : [];
+  if (!hourly.length) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+
+  // Build 24 hourly buckets
+  const buckets = new Array(24).fill(0);
+  const reqBuckets = new Array(24).fill(0);
+  for (const h of hourly) {
+    if (!h.hour) continue;
+    try {
+      const d = new Date(h.hour);
+      const hr = d.getHours();
+      if (hr >= 0 && hr < 24) {
+        buckets[hr] += (h.tokens || 0);
+        reqBuckets[hr] += (h.requests || 0);
+      }
+    } catch { /* ignore */ }
+  }
+
+  const max = Math.max(1, ...buckets);
+
+  // Quantize to levels 0-4
+  const levels = buckets.map(v => {
+    if (v === 0) return 0;
+    const ratio = v / max;
+    if (ratio < 0.15) return 1;
+    if (ratio < 0.4) return 2;
+    if (ratio < 0.7) return 3;
+    return 4;
+  });
+
+  const cells = levels.map((lvl, i) => {
+    const tokStr = fmtInt(buckets[i]);
+    const reqStr = fmtInt(reqBuckets[i]);
+    return `<div class="heatmapCell h${lvl}" title="${String(i).padStart(2, '0')}:00 — ${tokStr} tok, ${reqStr} req"></div>`;
+  }).join("");
+
+  const hours = Array.from({ length: 24 }, (_, i) =>
+    `<div class="heatmapHour">${i}</div>`
+  ).join("");
+
+  wrap.innerHTML = `
+    <div class="heatmapGrid">${cells}</div>
+    <div class="heatmapHours">${hours}</div>
+  `;
+}
+
 function renderSummary(data) {
   const s = data.totals || {};
   const div = $("summary");
@@ -809,24 +1211,57 @@ function renderSummary(data) {
   }
   const dailyAll = Object.entries(dailyAgg).sort((a, b) => a[0].localeCompare(b[0])).map(([, v]) => v);
 
-  const cards = [
-    { label: t("summary_bots"), value: fmtInt(s.botsTotal), sub: t("summary_bots_sub", { active: fmtInt(s.botsActive) }), spark: "" },
-    { label: t("summary_tokens24h"), value: fmtInt(s.tokens24h), sub: t("summary_tokens_sub", { requests: fmtInt(s.requests24h) }), spark: renderPillSparkline(dailyAll, "tokens", "rgba(94,234,212,.5)") },
-    { label: t("summary_cost24h"), value: fmtMoneyUsd(s.cost24h), sub: t("summary_cost_sub"), spark: renderPillSparkline(dailyAll, "costUSD", "rgba(96,165,250,.5)") },
-    { label: t("summary_errors24h"), value: fmtInt(s.errors24h), sub: t("summary_errors_sub"), spark: renderPillSparkline(dailyAll, "errors", "rgba(251,113,133,.5)") },
+  const hasErrors = (Number(s.errors24h) || 0) > 0;
+
+  const tokenTrend = calcTrend(dailyAll, "tokens");
+  const costTrend = calcTrend(dailyAll, "costUSD");
+  const errorTrend = calcTrend(dailyAll, "errors");
+
+  const rawValues = [
+    { raw: s.botsTotal || 0, fmt: fmtInt },
+    { raw: s.tokens24h || 0, fmt: fmtInt },
+    { raw: s.cost24h || 0, fmt: fmtMoneyUsd },
+    { raw: s.errors24h || 0, fmt: fmtInt },
   ];
 
-  for (const c of cards) {
+  const cards = [
+    { label: t("summary_bots"), value: fmtInt(s.botsTotal), sub: t("summary_bots_sub", { active: fmtInt(s.botsActive) }), spark: "", trend: "", klass: "", key: "bots" },
+    { label: t("summary_tokens24h"), value: fmtInt(s.tokens24h), sub: t("summary_tokens_sub", { requests: fmtInt(s.requests24h) }), spark: renderPillSparkline(dailyAll, "tokens", "rgba(94,234,212,.5)"), trend: trendHtml(tokenTrend), klass: "", key: "tokens" },
+    { label: t("summary_cost24h"), value: fmtMoneyUsd(s.cost24h), sub: monthlyProjectionSub(dailyAll), spark: renderPillSparkline(dailyAll, "costUSD", "rgba(96,165,250,.5)"), trend: trendHtml(costTrend), klass: "", key: "cost" },
+    { label: t("summary_errors24h"), value: fmtInt(s.errors24h), sub: t("summary_errors_sub"), spark: renderPillSparkline(dailyAll, "errors", "rgba(251,113,133,.5)"), trend: trendHtml(errorTrend), klass: hasErrors ? "pillError" : "", key: "errors" },
+  ];
+
+  // Read previous raw values for animation
+  const prevRaw = state._summaryRaw || {};
+
+  for (let i = 0; i < cards.length; i++) {
+    const c = cards[i];
+    const rv = rawValues[i];
     const el = document.createElement("div");
-    el.className = "pill";
+    el.className = `pill pill--${c.key} ${c.klass || ""}`.trim();
+    if (!state._summaryRendered) el.classList.add("pillAnimIn");
     el.innerHTML = `
       <div class="pillLabel">${c.label}</div>
-      <div class="pillValue">${c.value}</div>
+      <div class="pillValue"><span class="pillNum">${c.value}</span>${c.trend || ""}</div>
       <div class="pillSub">${c.sub || ""}</div>
-      ${c.spark || ""}
+      ${c.spark || '<div class="pillSparkline"></div>'}
     `;
     div.appendChild(el);
+
+    // Animate the number if it changed
+    const oldVal = prevRaw[c.key];
+    if (oldVal != null && oldVal !== rv.raw && Number.isFinite(oldVal)) {
+      const numEl = el.querySelector(".pillNum");
+      if (numEl) animateNumber(numEl, oldVal, rv.raw, 600, rv.fmt);
+    }
   }
+
+  // Store raw values for next render
+  state._summaryRaw = {};
+  for (let i = 0; i < cards.length; i++) {
+    state._summaryRaw[cards[i].key] = rawValues[i].raw;
+  }
+  state._summaryRendered = true;
 }
 
 function makeActionBtn(label, klass, onClick) {
@@ -957,6 +1392,76 @@ async function syncClaudeAuthAndRestart(unit) {
   }
 }
 
+/* ── Hover Preview Card ── */
+let _hoverTimer = null;
+let _hoverUnit = null;
+
+function showHoverPreview(bot, x, y) {
+  const el = $("hoverPreview");
+  if (!el) return;
+  _hoverUnit = bot.unit;
+
+  const sd = bot.systemd || {};
+  const usage24 = getUsageWindow(bot, "24h") || {};
+  const activeState = String(sd.activeState || "");
+  const subState = String(sd.subState || "");
+  const dotCls = statusDotClass(bot);
+  const statusText = `${systemdActiveLabel(activeState)}${subState ? " (" + systemdSubLabel(subState) + ")" : ""}`;
+  const issues = getHealthIssues(bot);
+  const errors24 = Number(usage24.errors) || 0;
+
+  let issuesHtml = "";
+  if (issues.length > 0) {
+    const items = issues.slice(0, 3).map(iss => {
+      const sev = String(iss.severity || "").toLowerCase();
+      const msg = escapeHtml(String(iss.message || iss.key || ""));
+      return `<div class="hpIssue ${sev}"><span class="hpIssueDot ${sev}"></span>${msg}</div>`;
+    }).join("");
+    issuesHtml = `<div class="hpIssues">${items}</div>`;
+  }
+
+  const memStr = Number.isFinite(sd.memoryBytes) ? fmtBytes(sd.memoryBytes) : "-";
+  const cpuStr = Number.isFinite(sd.cpuSeconds) ? fmtSeconds(sd.cpuSeconds) : "-";
+
+  el.innerHTML = `
+    <div class="hpHeader">
+      <span class="statusDot ${dotCls}"></span>
+      <strong>${escapeHtml(bot.displayName || bot.unit)}</strong>
+      ${typeBadgeHtml(bot.type)}
+    </div>
+    <div class="hpStatus">${escapeHtml(statusText)}</div>
+    ${issuesHtml}
+    <div class="hpGrid">
+      <div class="hpStat"><span class="hpLabel">${t("sd_memory")}</span><span class="hpVal">${memStr}</span></div>
+      <div class="hpStat"><span class="hpLabel">${t("sd_cpu")}</span><span class="hpVal">${cpuStr}</span></div>
+      <div class="hpStat"><span class="hpLabel">${t("sd_restarts")}</span><span class="hpVal${(Number(sd.nRestarts) || 0) > 0 ? " warn" : ""}">${fmtInt(sd.nRestarts || 0)}</span></div>
+      <div class="hpStat"><span class="hpLabel">${t("summary_errors24h")}</span><span class="hpVal${errors24 > 0 ? " bad" : ""}">${fmtInt(errors24)}</span></div>
+    </div>
+    <div class="hpHint">${t("action_details")} \u2192</div>
+  `;
+
+  el.hidden = false;
+
+  // Position near cursor
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  let left = x + 16;
+  let top = y - 20;
+  const rect = el.getBoundingClientRect();
+  if (left + rect.width > vw - 16) left = x - rect.width - 16;
+  if (top + rect.height > vh - 16) top = vh - rect.height - 16;
+  if (top < 16) top = 16;
+  el.style.left = `${left}px`;
+  el.style.top = `${top}px`;
+}
+
+function hideHoverPreview() {
+  clearTimeout(_hoverTimer);
+  _hoverUnit = null;
+  const el = $("hoverPreview");
+  if (el) el.hidden = true;
+}
+
 function renderBotsTable(data) {
   const tbody = $("botsTbody");
   tbody.innerHTML = "";
@@ -969,6 +1474,14 @@ function renderBotsTable(data) {
     const show = state.ui.show;
     if (show === "active") return (bot.systemd && bot.systemd.activeState) === "active";
     if (show === "issues") return botHasIssues(bot);
+
+    // Apply chip filter
+    const chip = state.chipFilter || "all";
+    if (chip === "active") return (bot.systemd && bot.systemd.activeState) === "active";
+    if (chip === "inactive") return (bot.systemd && bot.systemd.activeState) !== "active";
+    if (chip === "issues") return botHasIssues(bot);
+    if (chip === "clawdbot") return String(bot.type || "").toLowerCase().includes("clawdbot");
+    if (chip === "droid") return String(bot.type || "").toLowerCase().includes("droid");
     return true;
   });
 
@@ -1004,6 +1517,15 @@ function renderBotsTable(data) {
     countEl.textContent = `${filtered.length}/${bots.length}`;
   }
 
+  if (!filtered.length && bots.length > 0) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td colspan="6" style="text-align:center;padding:32px 12px;color:var(--muted);font-size:13px">${escapeHtml(t("no_bots_match"))}</td>`;
+    tbody.appendChild(tr);
+  }
+
+  const shouldAnimate = !state._skipRowAnim;
+  let animIdx = 0;
+
   for (const { bot } of filtered) {
     const tr = document.createElement("tr");
     tr.classList.add("rowClickable");
@@ -1017,6 +1539,8 @@ function renderBotsTable(data) {
     const usage24 = getUsageWindow(bot, "24h") || {};
     const lastAct = bot.usage ? bot.usage.lastActivityAt : null;
     const daily7 = (bot.usage && bot.usage.daily30d) ? bot.usage.daily30d.slice(-7) : [];
+    const hourly24h = (bot.usage && bot.usage.hourly24h) ? bot.usage.hourly24h : [];
+    const daily30d = (bot.usage && bot.usage.daily30d) ? bot.usage.daily30d : [];
 
     const issues = getHealthIssues(bot);
     const primaryIssue = pickPrimaryIssue(issues);
@@ -1027,7 +1551,7 @@ function renderBotsTable(data) {
     const statusLabel = `${systemdActiveLabel(activeState)}${bot.systemd.subState ? " (" + systemdSubLabel(bot.systemd.subState) + ")" : ""}`;
     const issueHtml = primaryMsg
       ? `<div class="issueLine ${primarySev === "error" ? "bad" : "warn"}">${escapeHtml(primaryMsg)}</div>`
-      : "";
+      : `<div class="issueLine">&nbsp;</div>`;
 
     const nameParts = [];
     const pinStar = isPinned(bot.unit) ? "\u2605" : "\u2606";
@@ -1065,7 +1589,10 @@ function renderBotsTable(data) {
     if (canEnable) actionsDiv.appendChild(makeActionBtn(t("action_enable"), "btnGood", () => doAction(bot.unit, "enable")));
 
     actionsDiv.appendChild(makeActionBtn(t("action_details"), "btnDetails", () => toggleDetails(bot.unit)));
-    actionsTd.appendChild(actionsDiv);
+    const actionsWrap = document.createElement("div");
+    actionsWrap.className = "actionsWrap";
+    actionsWrap.appendChild(actionsDiv);
+    actionsTd.appendChild(actionsWrap);
 
     const errors24 = Number(usage24.errors) || 0;
     const restarts = Number(bot.systemd.nRestarts) || 0;
@@ -1081,19 +1608,49 @@ function renderBotsTable(data) {
     if (isPinned(bot.unit)) tr.classList.add("rowPinned");
 
     const isChecked = state.batch.has(bot.unit);
+
+    const uptimeHtml = `${renderUptimeBar(bot.systemd.uptimeSeconds)}${restarts > 0 ? `<div class="restartsBadge" title="${t("sd_restarts")}">\u21bb ${restarts}</div>` : `<div class="restartsBadge">&nbsp;</div>`}`;
+    const activityHtml = lastAct ? `<div class="activityLine" title="${escapeHtml(lastAct)}">${escapeHtml(relativeTime(lastAct))}</div>` : `<div class="activityLine">&nbsp;</div>`;
+
+    const usageParts = [];
+    usageParts.push(`<span class="usageToken">${fmtInt(usage24.tokens)} tok</span>`);
+    usageParts.push(`<span class="usageCost">${fmtMoneyUsd(usage24.costUSD)}</span>`);
+    usageParts.push(errors24 > 0 ? `<span class="usageErr">${fmtInt(errors24)} err</span>` : `<span class="usageErr">&nbsp;</span>`);
+
+    const sparkHtml = renderFullWidthSparklines(hourly24h, daily30d);
+
+    actionsTd.setAttribute("rowspan", "2");
+    actionsTd.classList.add("actionsTd");
+
     tr.innerHTML = `
-      <td style="width:32px;padding-right:0;vertical-align:middle"><input type="checkbox" class="rowCheckbox" data-unit="${escapeHtml(bot.unit)}" ${isChecked ? "checked" : ""} /></td>
-      <td>${nameParts.join("")}</td>
-      <td><span class="statusDot ${dotClass}"></span>${escapeHtml(statusLabel)}${issueHtml}</td>
-      <td>${escapeHtml(unitFileStateLabel(bot.systemd.unitFileState) || "-")}</td>
-      <td>${renderUptimeBar(bot.systemd.uptimeSeconds)}</td>
-      <td title="${escapeHtml(lastAct || "")}">${escapeHtml(relativeTime(lastAct) || "-")}</td>
-      <td class="num">${fmtInt(usage24.tokens)}${renderSparkline(daily7)}</td>
-      <td class="num">${fmtMoneyUsd(usage24.costUSD)}</td>
-      <td class="num">${fmtInt(usage24.errors)}</td>
+      <td style="width:32px;padding-right:0;vertical-align:middle" rowspan="2"><input type="checkbox" class="rowCheckbox" data-unit="${escapeHtml(bot.unit)}" ${isChecked ? "checked" : ""} /></td>
+      <td><div class="cellClip">${nameParts.join("")}</div></td>
+      <td><div class="cellClip"><span class="statusDot ${dotClass}"></span>${enabledBadgeHtml(bot.systemd.unitFileState)}${issueHtml}</div></td>
+      <td><div class="cellClip">${uptimeHtml}${activityHtml}</div></td>
+      <td class="num usageCell"><div class="cellClip">${usageParts.join(" ")}</div></td>
     `;
     tr.appendChild(actionsTd);
+    if (shouldAnimate && animIdx < 12) {
+      tr.classList.add("rowAnimIn");
+      tr.style.animationDelay = `${animIdx * 30}ms`;
+    }
+    animIdx++;
     tbody.appendChild(tr);
+
+    // Sparkline sub-row (spans under all data columns, left of actions)
+    const sparkTr = document.createElement("tr");
+    sparkTr.className = "sparkRow";
+    if (tr.classList.contains("rowBad")) sparkTr.classList.add("rowBad");
+    if (tr.classList.contains("rowWarn")) sparkTr.classList.add("rowWarn");
+    if (tr.classList.contains("rowPinned")) sparkTr.classList.add("rowPinned");
+    if (tr.classList.contains("rowRecentActivity")) sparkTr.classList.add("rowRecentActivity");
+    sparkTr.innerHTML = `<td colspan="4" class="sparkTd">${sparkHtml}</td>`;
+    if (shouldAnimate && animIdx <= 13) {
+      sparkTr.classList.add("rowAnimIn");
+      sparkTr.style.animationDelay = `${(animIdx - 1) * 30}ms`;
+    }
+    sparkTr.addEventListener("click", () => toggleDetails(bot.unit));
+    tbody.appendChild(sparkTr);
 
     // Checkbox handler
     const cb = tr.querySelector(".rowCheckbox[data-unit]");
@@ -1118,8 +1675,32 @@ function renderBotsTable(data) {
       const target = e.target;
       if (target && target.closest && target.closest("button")) return;
       if (target && (target.classList.contains("rowCheckbox") || target.closest(".rowCheckbox"))) return;
+      hideHoverPreview();
       toggleDetails(bot.unit);
     });
+
+    // Hover preview (desktop only)
+    tr.addEventListener("mouseenter", (e) => {
+      if (window.innerWidth < 680) return;
+      clearTimeout(_hoverTimer);
+      _hoverTimer = setTimeout(() => showHoverPreview(bot, e.clientX, e.clientY), 500);
+    });
+    tr.addEventListener("mousemove", (e) => {
+      if (_hoverUnit !== bot.unit) return;
+      const el = $("hoverPreview");
+      if (!el || el.hidden) return;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      let left = e.clientX + 16;
+      let top = e.clientY - 20;
+      const rect = el.getBoundingClientRect();
+      if (left + rect.width > vw - 16) left = e.clientX - rect.width - 16;
+      if (top + rect.height > vh - 16) top = vh - rect.height - 16;
+      if (top < 16) top = 16;
+      el.style.left = `${left}px`;
+      el.style.top = `${top}px`;
+    });
+    tr.addEventListener("mouseleave", hideHoverPreview);
   }
 
   updateBatchBar();
@@ -1210,6 +1791,13 @@ function resizeCanvasToDisplaySize(canvas) {
   if (canvas.height !== nextH) canvas.height = nextH;
 }
 
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 function drawBars(canvas, values, color, { labels = null, title = "", format = null } = {}) {
   if (!canvas) return;
   resizeCanvasToDisplaySize(canvas);
@@ -1225,20 +1813,83 @@ function drawBars(canvas, values, color, { labels = null, title = "", format = n
   const vals = Array.isArray(values) && values.length ? values : [0];
   const labs = Array.isArray(labels) && labels.length === vals.length ? labels : null;
   const n = vals.length;
-  const max = Math.max(1, ...vals);
+  const allZero = vals.every(v => !v);
 
-  ctx.fillStyle = "rgba(159,176,195,0.18)";
+  // Subtle chart background
+  ctx.fillStyle = "rgba(159,176,195,0.08)";
   ctx.fillRect(pad, pad, innerW, innerH);
 
+  // Horizontal gridlines
+  const gridCount = 4;
+  ctx.strokeStyle = "rgba(159,176,195,0.08)";
+  ctx.lineWidth = 1;
+  for (let g = 1; g < gridCount; g++) {
+    const gy = pad + (innerH / gridCount) * g;
+    ctx.beginPath();
+    ctx.moveTo(pad, Math.round(gy) + 0.5);
+    ctx.lineTo(pad + innerW, Math.round(gy) + 0.5);
+    ctx.stroke();
+  }
+
+  if (allZero) {
+    ctx.fillStyle = "rgba(159,176,195,0.3)";
+    const dpr = window.devicePixelRatio || 1;
+    ctx.font = `${Math.round(13 * dpr)}px ui-sans-serif, system-ui, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("\u2014", w / 2, h / 2);
+    canvas._barChart = null;
+    return;
+  }
+
+  const max = Math.max(1, ...vals);
   const barW = innerW / n;
-  ctx.fillStyle = color;
+
+  // Draw gradient-filled bars with rounded tops
+  const barGrad = ctx.createLinearGradient(0, pad, 0, pad + innerH);
+  barGrad.addColorStop(0, color);
+  barGrad.addColorStop(1, hexToRgba(color, 0.25));
+
   for (let i = 0; i < n; i++) {
     const v = vals[i] || 0;
     const bh = (v / max) * innerH;
-    const x = pad + i * barW;
+    if (bh < 1) continue;
+    const x = pad + i * barW + 1;
     const y = pad + (innerH - bh);
-    ctx.fillRect(x + 1, y, Math.max(1, barW - 2), bh);
+    const bw = Math.max(1, barW - 2);
+    const radius = Math.min(3, bw / 3, bh / 2);
+
+    ctx.fillStyle = barGrad;
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + bw - radius, y);
+    ctx.quadraticCurveTo(x + bw, y, x + bw, y + radius);
+    ctx.lineTo(x + bw, y + bh);
+    ctx.lineTo(x, y + bh);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+    ctx.fill();
   }
+
+  // Glow line at the chart area top edge
+  const glowGrad = ctx.createLinearGradient(pad, pad, pad + innerW, pad);
+  glowGrad.addColorStop(0, "transparent");
+  glowGrad.addColorStop(0.3, hexToRgba(color, 0.12));
+  glowGrad.addColorStop(0.7, hexToRgba(color, 0.12));
+  glowGrad.addColorStop(1, "transparent");
+  ctx.fillStyle = glowGrad;
+  ctx.fillRect(pad, pad, innerW, 1);
+
+  // Draw max value label
+  const dpr = window.devicePixelRatio || 1;
+  const fmtFn = typeof format === "function" ? format : (v) => String(v);
+  const maxLabel = fmtFn(max);
+  ctx.fillStyle = "rgba(159,176,195,0.45)";
+  ctx.font = `${Math.round(10 * dpr)}px ui-sans-serif, system-ui, sans-serif`;
+  ctx.textAlign = "right";
+  ctx.textBaseline = "top";
+  ctx.fillText(maxLabel, w - pad, pad + 2);
 
   canvas._barChart = {
     pad,
@@ -1477,11 +2128,14 @@ function renderUsageSummary(bot) {
   const win24 = usage ? (usage.windows && usage.windows["24h"]) || {} : {};
   const all = usage ? usage.allTime || {} : {};
 
+  const errors24 = Number(win24.errors) || 0;
+  const errorsAll = Number(all.errors) || 0;
   const pills = [
     {
       label: t("us_tokens24h"),
       value: fmtInt(win24.tokens),
-      sub: `${fmtInt(win24.requests)} ${t("req_short")} • ${fmtInt(win24.errors)} ${t("err_short")}`,
+      sub: `${fmtInt(win24.requests)} ${t("req_short")} • ${fmtInt(errors24)} ${t("err_short")}`,
+      klass: errors24 > 0 ? "miniWarn" : "",
     },
     {
       label: t("us_cost24h"),
@@ -1491,7 +2145,7 @@ function renderUsageSummary(bot) {
     {
       label: t("us_tokens_all"),
       value: fmtInt(all.tokens),
-      sub: `${fmtInt(all.requests)} ${t("req_short")} • ${fmtInt(all.errors)} ${t("err_short")}`,
+      sub: `${fmtInt(all.requests)} ${t("req_short")} • ${fmtInt(errorsAll)} ${t("err_short")}`,
     },
     {
       label: t("us_cost_all"),
@@ -1516,7 +2170,7 @@ function renderUsageSummary(bot) {
   }
 
   el.innerHTML = pills.map(p => `
-    <div class="miniPill">
+    <div class="miniPill ${p.klass || ""}">
       <div class="miniLabel">${escapeHtml(p.label)}</div>
       <div class="miniValue">${escapeHtml(p.value)}</div>
       <div class="miniSub">${escapeHtml(p.sub || "")}</div>
@@ -1534,10 +2188,12 @@ function renderLastError(bot) {
     el.classList.add("muted");
     return;
   }
+  el.classList.remove("muted");
   const ts = last.timestamp || "";
   const msg = last.message || "error";
-  el.textContent = `${fmtIso(ts)} • ${msg}`;
-  el.classList.remove("muted");
+  const rel = relativeTime(ts);
+  const timeText = rel ? `${fmtIso(ts)} (${rel})` : fmtIso(ts);
+  el.innerHTML = `<div class="lastErrorTime">${escapeHtml(timeText)}</div><div class="lastErrorMsg">${escapeHtml(msg)}</div>`;
 }
 
 function renderHealth(bot) {
@@ -1547,13 +2203,23 @@ function renderHealth(bot) {
 
   if (actionsEl) actionsEl.innerHTML = "";
 
-  const issues = getHealthIssues(bot);
-  if (!issues.length) {
+  const issuesRaw = getHealthIssues(bot);
+  if (!issuesRaw.length) {
     el.textContent = t("health_ok");
     el.classList.add("muted");
     return;
   }
   el.classList.remove("muted");
+
+  // Sort: errors first, then warnings, then by timestamp descending
+  const sevRank = (s) => { const v = String(s || "").toLowerCase(); return v === "error" ? 0 : v === "warn" ? 1 : 2; };
+  const issues = [...issuesRaw].sort((a, b) => {
+    const d = sevRank(a.severity) - sevRank(b.severity);
+    if (d !== 0) return d;
+    const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+    const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+    return tb - ta;
+  });
 
   const parts = [];
   for (const it of issues) {
@@ -1615,6 +2281,7 @@ function showToast(title, msg, { type = "info", duration = 4000 } = {}) {
   const icons = { good: "\u2705", bad: "\u274C", warn: "\u26A0\uFE0F", info: "\u2139\uFE0F" };
   const el = document.createElement("div");
   el.className = `toast toast${type.charAt(0).toUpperCase() + type.slice(1)}`;
+  const progressHtml = duration > 0 ? `<div class="toastProgress"><div class="toastProgressBar" style="--toast-duration:${duration}ms"></div></div>` : "";
   el.innerHTML = `
     <span class="toastIcon">${icons[type] || icons.info}</span>
     <div class="toastBody">
@@ -1622,6 +2289,7 @@ function showToast(title, msg, { type = "info", duration = 4000 } = {}) {
       ${msg ? `<div class="toastMsg">${escapeHtml(msg)}</div>` : ""}
     </div>
     <button class="toastClose">&times;</button>
+    ${progressHtml}
   `;
   container.appendChild(el);
 
@@ -1636,15 +2304,44 @@ function showToast(title, msg, { type = "info", duration = 4000 } = {}) {
 }
 
 /* ── Sparkline renderer ── */
-function renderSparkline(daily7) {
+function renderSparkline(daily7, { key = "tokens", color = null, fmtFn = null } = {}) {
   if (!daily7 || !daily7.length) return "";
-  const vals = daily7.map(d => d.tokens || 0);
+  const vals = daily7.map(d => d[key] || 0);
   const max = Math.max(1, ...vals);
+  const fmt = fmtFn || fmtInt;
+  const style = color ? `background:${color}` : "";
   const bars = vals.map(v => {
     const h = Math.max(1, Math.round((v / max) * 18));
-    return `<span class="sparklineBar" style="height:${h}px" title="${fmtInt(v)}"></span>`;
+    return `<span class="sparklineBar" style="height:${h}px${style ? ";" + style : ""}" title="${fmt(v)}"></span>`;
   });
   return `<span class="sparklineWrap">${bars.join("")}</span>`;
+}
+
+/* ── Full-width sparklines (24h hourly + 30d daily, spans entire row) ── */
+function renderFullWidthSparklines(hourly24h, daily30d) {
+  function makeBars(data, color) {
+    if (!data || !data.length) return "";
+    const vals = data.map(d => d.tokens || 0);
+    const mx = Math.max(1, ...vals);
+    return vals.map(v => {
+      const pct = mx > 0 ? Math.max(2, Math.round((v / mx) * 100)) : 2;
+      return `<span class="fwSparkBar" style="height:${pct}%;background:${color}" title="${fmtInt(v)}"></span>`;
+    }).join("");
+  }
+
+  const has24 = hourly24h && hourly24h.length;
+  const has30 = daily30d && daily30d.length;
+  if (!has24 && !has30) return "";
+
+  const h24bars = has24 ? makeBars(hourly24h, "var(--teal)") : "";
+  const d30bars = has30 ? makeBars(daily30d, "rgba(96,165,250,.6)") : "";
+
+  let html = `<div class="fwSparkRow">`;
+  html += `<span class="fwSparkLabel">24h</span><span class="fwSparkChart">${h24bars}</span>`;
+  html += `<span class="fwSparkGap"></span>`;
+  html += `<span class="fwSparkLabel">30d</span><span class="fwSparkChart">${d30bars}</span>`;
+  html += `</div>`;
+  return html;
 }
 
 /* ── Pin/favorite bots ── */
@@ -1812,6 +2509,61 @@ function updatePageTitleBadge(data) {
   document.title = issueCount > 0 ? `[${issueCount}] ${baseTitle}` : baseTitle;
 }
 
+/* ── Issues notification badge ── */
+function renderIssuesBadge(data) {
+  const el = $("issuesBadge");
+  if (!el || !data || !data.bots) return;
+
+  const bots = data.bots || [];
+  let errorCount = 0;
+  let warnCount = 0;
+  let downCount = 0;
+
+  for (const bot of bots) {
+    const issues = getHealthIssues(bot);
+    for (const issue of issues) {
+      const sev = String(issue.severity || "").toLowerCase();
+      if (sev === "error") errorCount++;
+      else if (sev === "warn") warnCount++;
+    }
+    const activeState = String(bot.systemd && bot.systemd.activeState || "");
+    if (activeState !== "active") downCount++;
+  }
+
+  const totalIssues = errorCount + warnCount + downCount;
+
+  if (totalIssues === 0) {
+    el.hidden = false;
+    el.className = "issuesBadge badgeOk";
+    const lang = normalizeLang(state.ui.lang);
+    el.innerHTML = `<span class="issuesBadgeIcon">\u2714</span>${lang === "ru" ? "Все ОК" : "All OK"}`;
+    el.onclick = null;
+    return;
+  }
+
+  el.hidden = false;
+  el.className = `issuesBadge ${errorCount > 0 || downCount > 0 ? "badgeBad" : "badgeWarn"}`;
+
+  const parts = [];
+  if (downCount > 0) parts.push(`${downCount} down`);
+  if (errorCount > 0) parts.push(`${errorCount} err`);
+  if (warnCount > 0) parts.push(`${warnCount} warn`);
+
+  el.innerHTML = `<span class="issuesBadgeIcon">${errorCount > 0 || downCount > 0 ? "\u26A0" : "\u26A0"}</span>${parts.join(" \u2022 ")}`;
+  el.onclick = () => {
+    state.chipFilter = "issues";
+    state.ui.show = "all";
+    const showSelect = $("showSelect");
+    if (showSelect) showSelect.value = "all";
+    lsSet("show", "all");
+    if (state.data) {
+      renderFilterChips(state.data);
+      renderBotsTable(state.data);
+    }
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+}
+
 /* ── Telegram link helper ── */
 function telegramLinkHtml(handle) {
   if (!handle) return "";
@@ -1955,6 +2707,14 @@ function exportCsv() {
   showToast(t("export_csv"), `${bots.length} bots`, { type: "good", duration: 2000 });
 }
 
+/* ── Enabled state badge ── */
+function enabledBadgeHtml(unitFileState) {
+  const label = unitFileStateLabel(unitFileState) || "-";
+  const cls = enabledChipClass(unitFileState);
+  if (!cls) return escapeHtml(label);
+  return `<span class="enabledBadge ${cls}">${escapeHtml(label)}</span>`;
+}
+
 /* ── Bot type badge ── */
 function typeBadgeHtml(botType) {
   if (!botType) return "";
@@ -1977,6 +2737,219 @@ function renderPillSparkline(dailyAll, key, color) {
   return `<div class="pillSparkline">${bars.join("")}</div>`;
 }
 
+/* ── Fleet Health Bar ── */
+function getFleetTooltipEl() {
+  let el = $("fleetTooltip");
+  if (el) return el;
+  el = document.createElement("div");
+  el.id = "fleetTooltip";
+  el.className = "fleetTooltip";
+  el.hidden = true;
+  document.body.appendChild(el);
+  return el;
+}
+
+function renderFleetBar(data) {
+  const bar = $("fleetBar");
+  const countsEl = $("fleetCounts");
+  if (!bar) return;
+  const bots = Array.isArray(data.bots) ? data.bots : [];
+  bar.innerHTML = "";
+
+  let goodCount = 0, warnCount = 0, badCount = 0;
+
+  for (const bot of bots) {
+    const seg = document.createElement("div");
+    seg.className = "fleetSeg";
+    seg.dataset.name = bot.displayName || bot.unit;
+    const cls = statusDotClass(bot);
+    seg.classList.add(cls);
+    if (cls === "good") goodCount++;
+    else if (cls === "warn") warnCount++;
+    else badCount++;
+
+    if (state.selectedUnit === bot.unit) seg.classList.add("selected");
+
+    seg.addEventListener("click", () => toggleDetails(bot.unit));
+    seg.addEventListener("mouseenter", (e) => {
+      const tip = getFleetTooltipEl();
+      const sd = bot.systemd || {};
+      const statusLabel = `${systemdActiveLabel(sd.activeState)}${sd.subState ? " (" + systemdSubLabel(sd.subState) + ")" : ""}`;
+      const usage24 = getUsageWindow(bot, "24h") || {};
+      tip.textContent = `${bot.displayName || bot.unit}\n${statusLabel} • ${fmtInt(usage24.tokens)} tok • ${fmtMoneyUsd(usage24.costUSD)}`;
+      tip.style.whiteSpace = "pre";
+      tip.hidden = false;
+      const pad = 10;
+      let left = e.clientX + pad;
+      let top = e.clientY - 40;
+      const r = tip.getBoundingClientRect();
+      if (left + r.width + 8 > window.innerWidth) left = e.clientX - r.width - pad;
+      if (top < 8) top = 8;
+      tip.style.left = `${Math.max(8, left)}px`;
+      tip.style.top = `${Math.max(8, top)}px`;
+    });
+    seg.addEventListener("mousemove", (e) => {
+      const tip = getFleetTooltipEl();
+      if (tip.hidden) return;
+      const pad = 10;
+      let left = e.clientX + pad;
+      let top = e.clientY - 40;
+      const r = tip.getBoundingClientRect();
+      if (left + r.width + 8 > window.innerWidth) left = e.clientX - r.width - pad;
+      if (top < 8) top = 8;
+      tip.style.left = `${Math.max(8, left)}px`;
+      tip.style.top = `${Math.max(8, top)}px`;
+    });
+    seg.addEventListener("mouseleave", () => {
+      const tip = getFleetTooltipEl();
+      tip.hidden = true;
+    });
+
+    bar.appendChild(seg);
+  }
+
+  if (countsEl) {
+    countsEl.innerHTML = `
+      <span class="fleetCount"><span class="fleetCountDot" style="background:var(--good)"></span>${goodCount}</span>
+      <span class="fleetCount"><span class="fleetCountDot" style="background:var(--warn)"></span>${warnCount}</span>
+      <span class="fleetCount"><span class="fleetCountDot" style="background:var(--bad)"></span>${badCount}</span>
+    `;
+  }
+}
+
+/* ── Quick Filter Chips ── */
+function renderFilterChips(data) {
+  const el = $("filterChipsSection");
+  if (!el) return;
+  const bots = Array.isArray(data.bots) ? data.bots : [];
+
+  const counts = { all: bots.length, active: 0, inactive: 0, issues: 0, clawdbot: 0, droid: 0 };
+  for (const bot of bots) {
+    const active = (bot.systemd && bot.systemd.activeState) === "active";
+    if (active) counts.active++;
+    else counts.inactive++;
+    if (botHasIssues(bot)) counts.issues++;
+    const type = String(bot.type || "").toLowerCase();
+    if (type.includes("clawdbot")) counts.clawdbot++;
+    else if (type.includes("droid")) counts.droid++;
+  }
+
+  const chips = [
+    { key: "all", label: t("chip_all"), count: counts.all },
+    { key: "active", label: t("chip_active"), count: counts.active },
+    { key: "inactive", label: t("chip_inactive"), count: counts.inactive },
+    { key: "issues", label: t("chip_issues"), count: counts.issues },
+  ];
+  if (counts.clawdbot > 0) chips.push({ key: "clawdbot", label: t("chip_clawdbot"), count: counts.clawdbot });
+  if (counts.droid > 0) chips.push({ key: "droid", label: t("chip_droid"), count: counts.droid });
+
+  el.innerHTML = chips.map(c => {
+    const active = state.chipFilter === c.key ? "active" : "";
+    return `<button class="filterChip ${active}" data-chip="${c.key}">${escapeHtml(c.label)}<span class="filterChipCount">${c.count}</span></button>`;
+  }).join("");
+
+  for (const btn of el.querySelectorAll("[data-chip]")) {
+    btn.addEventListener("click", () => {
+      state.chipFilter = btn.dataset.chip || "all";
+      // Reset the show dropdown to "all" so they don't conflict
+      state.ui.show = "all";
+      const showSelect = $("showSelect");
+      if (showSelect) showSelect.value = "all";
+      lsSet("show", "all");
+      if (state.data) {
+        renderFilterChips(state.data);
+        renderBotsTable(state.data);
+      }
+    });
+  }
+}
+
+/* ── Browser Notifications ── */
+function canNotify() {
+  return typeof Notification !== "undefined" && Notification.permission === "granted";
+}
+
+async function requestNotifications() {
+  if (typeof Notification === "undefined") return false;
+  if (Notification.permission === "granted") return true;
+  if (Notification.permission === "denied") {
+    showToast(t("notif_denied"), "", { type: "warn", duration: 3000 });
+    return false;
+  }
+  const result = await Notification.requestPermission();
+  if (result === "granted") {
+    showToast(t("notif_enabled"), "", { type: "good", duration: 2000 });
+    return true;
+  }
+  return false;
+}
+
+function sendBrowserNotification(title, body, { tag = "bots-dashboard" } = {}) {
+  if (!canNotify()) return;
+  try {
+    const n = new Notification(title, {
+      body,
+      tag,
+      icon: "/favicon-192x192.png",
+      silent: false,
+    });
+    n.onclick = () => { window.focus(); n.close(); };
+    setTimeout(() => n.close(), 10000);
+  } catch { /* ignore */ }
+}
+
+/* ── Status Change Detection ── */
+function detectStatusChanges(oldData, newData) {
+  if (!oldData || !oldData.bots || !newData || !newData.bots) return;
+  const oldMap = {};
+  for (const b of oldData.bots) oldMap[b.unit] = b;
+
+  for (const bot of newData.bots) {
+    const old = oldMap[bot.unit];
+    if (!old) continue;
+    const oldActive = String(old.systemd && old.systemd.activeState || "");
+    const newActive = String(bot.systemd && bot.systemd.activeState || "");
+    const name = bot.displayName || bot.unit;
+
+    if (oldActive === newActive) continue;
+
+    if (oldActive === "active" && newActive !== "active") {
+      if (newActive === "activating") {
+        showToast(t("status_restarting", { name }), "", { type: "warn", duration: 5000 });
+      } else {
+        showToast(t("status_went_down", { name }), `${systemdActiveLabel(newActive)}`, { type: "bad", duration: 6000 });
+        sendBrowserNotification(t("status_went_down", { name }), systemdActiveLabel(newActive), { tag: `down-${bot.unit}` });
+      }
+    } else if (oldActive !== "active" && newActive === "active") {
+      showToast(t("status_came_up", { name }), "", { type: "good", duration: 4000 });
+      sendBrowserNotification(t("status_came_up", { name }), "", { tag: `up-${bot.unit}` });
+    }
+  }
+}
+
+/* ── Summary Trend Indicators ── */
+function calcTrend(daily, key) {
+  if (!daily || daily.length < 2) return null;
+  const recent = daily.slice(-1)[0];
+  const prev = daily.slice(-2, -1)[0];
+  const cur = (recent && recent[key]) || 0;
+  const old = (prev && prev[key]) || 0;
+  if (old === 0 && cur === 0) return { dir: "flat", pct: 0 };
+  if (old === 0) return { dir: "up", pct: 100 };
+  const pct = Math.round(((cur - old) / old) * 100);
+  if (pct > 0) return { dir: "up", pct };
+  if (pct < 0) return { dir: "down", pct };
+  return { dir: "flat", pct: 0 };
+}
+
+function trendHtml(trend) {
+  if (!trend || trend.dir === "flat") return "";
+  const arrow = trend.dir === "up" ? "\u2191" : "\u2193";
+  const cls = trend.dir === "up" ? "up" : "down";
+  const pct = Math.abs(trend.pct);
+  return `<span class="pillTrend ${cls}">${arrow}${pct}%</span>`;
+}
+
 /* ── Keyboard shortcuts help ── */
 function showShortcuts() {
   const overlay = $("shortcutsOverlay");
@@ -1984,12 +2957,15 @@ function showShortcuts() {
   const grid = $("shortcutsGrid");
   if (grid) {
     const shortcuts = [
+      { keys: ["\u2318K / Ctrl+K"], desc: t("sc_cmd_palette") },
       { keys: ["Enter", "Click"], desc: t("sc_open_details") },
       { keys: ["Esc"], desc: t("sc_close") },
       { keys: ["\u2190 / K", "\u2192 / J"], desc: t("sc_prev_next") },
       { keys: ["R"], desc: t("sc_refresh") },
       { keys: ["/"], desc: t("sc_filter") },
       { keys: ["A"], desc: t("sc_select_all") },
+      { keys: ["L"], desc: "Load logs (in details)" },
+      { keys: ["N"], desc: t("notif_enable") },
       { keys: ["?"], desc: t("sc_shortcuts") },
     ];
     grid.innerHTML = shortcuts.map(s => `
@@ -2045,13 +3021,13 @@ function renderDetailsMeta(bot) {
 
   const sd = bot.systemd || {};
   const chips = [];
-  const push = (text, { klass = "", mono = false } = {}) => {
+  const push = (text, { klass = "", mono = false, link = false } = {}) => {
     const s = String(text || "").trim();
     if (!s) return;
-    chips.push({ text: s, klass: String(klass || "").trim(), mono: Boolean(mono) });
+    chips.push({ text: s, klass: String(klass || "").trim(), mono: Boolean(mono), link: Boolean(link) });
   };
 
-  if (bot.telegramHandle) push(bot.telegramHandle);
+  if (bot.telegramHandle) push(bot.telegramHandle, { link: true });
   if (bot.type) push(bot.type);
   if (bot.profile) push(`${t("meta_profile")}:${bot.profile}`);
   if (bot.scope === "user") push(bot.user ? `${t("meta_user")}:${bot.user}` : t("scope_user"));
@@ -2068,9 +3044,22 @@ function renderDetailsMeta(bot) {
   const lastAct = bot.usage ? bot.usage.lastActivityAt : null;
   if (lastAct) push(relativeTime(lastAct));
 
+  // Data freshness
+  if (state.data && state.data.generatedAt) {
+    push(t("data_from", { time: relativeTime(state.data.generatedAt) || fmtIso(state.data.generatedAt) }));
+  }
+
   metaEl.innerHTML = chips.map((c) => {
     const cls = ["metaChip", c.klass].filter(Boolean).join(" ");
-    const inner = c.mono ? `<code>${escapeHtml(c.text)}</code>` : escapeHtml(c.text);
+    let inner;
+    if (c.link && c.text.startsWith("@")) {
+      const clean = c.text.replace(/^@/, "");
+      inner = `<a href="https://t.me/${escapeHtml(clean)}" target="_blank" rel="noopener">@${escapeHtml(clean)}</a>`;
+    } else if (c.mono) {
+      inner = `<code>${escapeHtml(c.text)}</code>`;
+    } else {
+      inner = escapeHtml(c.text);
+    }
     return `<span class="${cls}" title="${escapeHtml(c.text)}">${inner}</span>`;
   }).join("");
 }
@@ -2171,18 +3160,27 @@ function renderDetails(bot) {
 
   renderHealth(bot);
   renderBotDocs(bot);
+  renderFieldGuide(bot);
   renderSystemdBox(bot);
   ensureUnitDetails(bot.unit);
   renderUsageSummary(bot);
   renderLastError(bot);
+  renderActivityHeatmap(bot);
 
   renderUsageCharts(bot);
+
+  // Start live uptime ticker
+  startUptimeTicker(bot);
 
   const providers = bot.usage && bot.usage.byProvider ? bot.usage.byProvider : {};
   const list = $("providersList");
   list.innerHTML = "";
 
   const entries = Object.entries(providers).sort((a, b) => (b[1].tokens || 0) - (a[1].tokens || 0));
+  const totalProviderTokens = entries.reduce((sum, [, st]) => sum + (st.tokens || 0), 0);
+  const totalProviderCost = entries.reduce((sum, [, st]) => sum + (st.costUSD || 0), 0);
+  const costLabel = $("providersTotalCost");
+  if (costLabel) costLabel.textContent = entries.length ? `${fmtInt(totalProviderTokens)} ${t("tokens_word")} • ${fmtMoneyUsd(totalProviderCost)}` : "";
   if (!entries.length) {
     list.innerHTML = `<div class="muted">${escapeHtml(t("no_usage"))}</div>`;
   } else {
@@ -2196,9 +3194,11 @@ function renderDetails(bot) {
           modelParts.push(`${m} (${fmtInt(ms.tokens)} ${t("tokens_word")})`);
         }
       }
+      const pct = totalProviderTokens > 0 ? ((st.tokens || 0) / totalProviderTokens * 100) : 0;
+      const pctStr = pct >= 1 ? `${pct.toFixed(0)}%` : pct > 0 ? "<1%" : "0%";
       row.innerHTML = `
         <div>
-          <div class="providerName">${escapeHtml(provider)}</div>
+          <div class="providerName">${escapeHtml(provider)} <span class="providerPct">${pctStr}</span></div>
           <div class="providerMeta">${escapeHtml(modelParts.join(" • ") || "")}</div>
         </div>
         <div class="providerNums">
@@ -2210,7 +3210,9 @@ function renderDetails(bot) {
     }
   }
 
-  // Render provider donut chart
+  // Render provider donut chart (hide if no data)
+  const donutWrap = $("providerDonut") && $("providerDonut").closest(".providerChartWrap");
+  if (donutWrap) donutWrap.style.display = entries.length ? "" : "none";
   renderProviderDonut(bot);
 
   state.details.logsUnit = bot.unit;
@@ -2227,6 +3229,15 @@ function renderDetails(bot) {
     searchInput.oninput = () => {
       state.details.logQuery = searchInput.value || "";
       if (logsPre.dataset.logsLoaded === "1") renderLogsView();
+    };
+    searchInput.onkeydown = (e) => {
+      if (e.key === "Escape" && searchInput.value) {
+        e.preventDefault();
+        e.stopPropagation();
+        searchInput.value = "";
+        state.details.logQuery = "";
+        if (logsPre.dataset.logsLoaded === "1") renderLogsView();
+      }
     };
   }
 
@@ -2252,6 +3263,10 @@ function renderDetails(bot) {
       setTimeout(() => { if (btn) btn.textContent = before || t("copy"); }, 800);
     } catch { /* ignore */ }
   };
+
+  // Download logs button
+  const dlBtn = $("downloadLogsBtn");
+  if (dlBtn) dlBtn.onclick = () => downloadLogs();
 
   // Follow logs button
   setFollowLogs(false); // reset on new detail open
@@ -2280,22 +3295,53 @@ function renderLogsView() {
   const qLower = q.toLowerCase();
   const lines = raw.split(/\r?\n/);
   const shown = q ? lines.filter(ln => String(ln || "").toLowerCase().includes(qLower)) : lines;
+
+  // Show match count badge
+  const searchInput = $("logSearchInput");
+  const badge = $("logMatchBadge");
+  if (badge) {
+    if (q && shown.length > 0) {
+      badge.textContent = t("log_matches", { n: shown.length });
+      badge.hidden = false;
+    } else if (q && !shown.length) {
+      badge.textContent = t("logs_no_matches");
+      badge.hidden = false;
+    } else {
+      badge.hidden = true;
+    }
+  }
+
   if (q && !shown.length) {
     logsPre.textContent = t("logs_no_matches");
     return;
   }
 
   const qRe = q ? new RegExp(escapeRegExp(q), "gi") : null;
-  const badRe = /\b(error|fatal|exception|traceback)\b/ig;
-  const warnRe = /\b(warn|warning)\b/ig;
+  const badRe = /\b(error|fatal|exception|traceback|panic|critical)\b/ig;
+  const warnRe = /\b(warn|warning|deprecated)\b/ig;
+  const jsonRe = /(\{[^{}]{10,}\})/g;
+  const timestampRe = /^(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)\s*/;
 
   const out = shown.map((ln, i) => {
     let s = escapeHtml(ln);
     if (qRe) s = s.replace(qRe, m => `<mark class="logMatch">${m}</mark>`);
     s = s.replace(badRe, m => `<span class="logSevBad">${m}</span>`);
     s = s.replace(warnRe, m => `<span class="logSevWarn">${m}</span>`);
+
+    // Highlight JSON objects inline
+    s = s.replace(jsonRe, m => `<span class="logJson">${m}</span>`);
+
+    // Detect severity for line indicator
+    const lnLower = ln.toLowerCase();
+    let sevCls = "";
+    if (/\b(error|fatal|exception|traceback|panic|critical)\b/.test(lnLower)) sevCls = "logLineBad";
+    else if (/\b(warn|warning|deprecated)\b/.test(lnLower)) sevCls = "logLineWarn";
+
+    // Highlight timestamps
+    s = s.replace(/^(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)/, m => `<span class="logTs">${m}</span>`);
+
     const lineNum = q ? "" : `<span class="logLineNum">${i + 1}</span>`;
-    return `<span class="logLine">${lineNum}<span class="logLineText">${s}</span></span>`;
+    return `<span class="logLine ${sevCls}">${lineNum}<span class="logLineText">${s}</span></span>`;
   }).join("\n");
 
   if (!out) {
@@ -2328,6 +3374,348 @@ async function loadLogs(unit) {
     state.details.logsRaw = "";
     logsPre.textContent = t("logs_failed", { error: String(e && (e.message || e) || "") });
   }
+}
+
+// ============================================
+// Field Guide (contextual term explainer)
+// ============================================
+function initFieldGuide() {
+  const toggle = $("fieldGuideToggle");
+  const box = $("fieldGuideBox");
+  if (!toggle || !box) return;
+  toggle.addEventListener("click", () => {
+    const show = box.hidden;
+    box.hidden = !show;
+    toggle.textContent = show ? t("fg_collapse") : t("fg_expand");
+  });
+}
+
+function renderFieldGuide(bot) {
+  const box = $("fieldGuideBox");
+  const titleEl = $("fieldGuideTitle");
+  if (!box) return;
+  if (titleEl) titleEl.textContent = t("fg_title");
+
+  const lang = normalizeLang(state.ui.lang) || "en";
+  const isRu = lang === "ru";
+  const sd = bot.systemd || {};
+  const usage = bot.usage || {};
+  const allTime = usage.allTime || {};
+  const w24 = (usage.windows && usage.windows["24h"]) || {};
+  const providers = usage.byProvider || {};
+  const providerNames = Object.keys(providers);
+
+  const bots = state.data && Array.isArray(state.data.bots) ? state.data.bots : [];
+  const clawdbots = bots.filter(b => b.type === "clawdbot");
+  const droids = bots.filter(b => b.type === "droid");
+  const totalBots = bots.length;
+  const totalCost = bots.reduce((s, b) => s + ((b.usage && b.usage.allTime && b.usage.allTime.costUSD) || 0), 0);
+  const thisCostPct = totalCost > 0 ? ((allTime.costUSD || 0) / totalCost * 100).toFixed(1) : "0";
+  const costRank = bots
+    .map(b => ({ unit: b.unit, cost: (b.usage && b.usage.allTime && b.usage.allTime.costUSD) || 0 }))
+    .sort((a, b) => b.cost - a.cost)
+    .findIndex(b => b.unit === bot.unit) + 1;
+
+  const groups = [];
+
+  // ── Identity ──
+  const identityEntries = [];
+
+  identityEntries.push({
+    term: bot.displayName || bot.unit,
+    def: isRu
+      ? `<strong>Отображаемое имя</strong> этого бота в дашборде. Задаётся в <code>config.json</code> → <code>botMappings</code>. Реальный идентификатор — systemd unit name.`
+      : `<strong>Display name</strong> for this bot in the dashboard. Set in <code>config.json</code> → <code>botMappings</code>. The real identifier is the systemd unit name.`,
+  });
+
+  if (bot.telegramHandle) {
+    identityEntries.push({
+      term: bot.telegramHandle,
+      def: isRu
+        ? `<strong>Telegram-хэндл</strong> — имя бота в Telegram. Пользователи пишут этому боту, и он обрабатывает их запросы. Каждый бот имеет уникальный хэндл, зарегистрированный через <code>@BotFather</code>.`
+        : `<strong>Telegram handle</strong> — the bot's username in Telegram. Users message this bot and it processes their requests. Registered via <code>@BotFather</code>.`,
+    });
+  }
+
+  if (bot.type) {
+    const typeExplain = bot.type === "clawdbot"
+      ? (isRu
+        ? `<strong>Тип: clawdbot</strong> — работает на движке <strong>Clawdbot Gateway</strong>. Clawdbot — универсальная платформа: принимает сообщения из Telegram, направляет в AI-бэкенд (Claude, Codex, Gemini, Kimi, MiniMax), управляет очередью задач, хранит историю сессий. ${clawdbots.length} из ${totalBots} ботов используют этот движок.`
+        : `<strong>Type: clawdbot</strong> — runs on the <strong>Clawdbot Gateway</strong> engine. Clawdbot is a universal platform: receives Telegram messages, routes to an AI backend (Claude, Codex, Gemini, Kimi, MiniMax), manages job queue, stores session history. ${clawdbots.length} of ${totalBots} bots use this engine.`)
+      : bot.type === "droid"
+        ? (isRu
+          ? `<strong>Тип: droid</strong> — работает через <strong>Droid CLI</strong> (<code>droid exec</code>). Более простой Python-бот — вызывает Droid CLI для каждого сообщения. Нет очереди задач clawdbot, но есть свои команды (/repo, /newchat). ${droids.length} из ${totalBots} ботов используют Droid.`
+          : `<strong>Type: droid</strong> — runs via <strong>Droid CLI</strong> (<code>droid exec</code>). Simpler Python bot — calls Droid CLI per message. No clawdbot job queue, but has own commands (/repo, /newchat). ${droids.length} of ${totalBots} bots use Droid.`)
+        : (isRu
+          ? `<strong>Тип: ${escapeHtml(bot.type)}</strong> — тип движка этого бота.`
+          : `<strong>Type: ${escapeHtml(bot.type)}</strong> — the engine type for this bot.`);
+    identityEntries.push({ term: bot.type, def: typeExplain });
+  }
+
+  if (bot.gatewayPort) {
+    const otherPorts = clawdbots.filter(b => b.unit !== bot.unit && b.gatewayPort).map(b => b.gatewayPort).join(", ");
+    identityEntries.push({
+      term: `port:${bot.gatewayPort}`,
+      def: isRu
+        ? `<strong>Gateway-порт</strong> — HTTP-порт на localhost, где Clawdbot Gateway слушает запросы. Telegram-коннектор подключается к этому порту. Каждый clawdbot-бот имеет уникальный порт, чтобы избежать конфликтов.`
+        : `<strong>Gateway port</strong> — the localhost HTTP port where Clawdbot Gateway listens. The Telegram connector sends messages here. Each clawdbot bot needs a unique port to avoid conflicts.`,
+      compare: isRu
+        ? `Другие порты: ${otherPorts || "нет"}`
+        : `Other ports in fleet: ${otherPorts || "none"}`,
+    });
+  }
+
+  identityEntries.push({
+    term: `unit:${bot.unit}`,
+    def: isRu
+      ? `<strong>Systemd unit</strong> — имя сервиса в systemd (уникальный идентификатор в ОС). Шаблон имён: <code>cli-bridge-gateway-*</code> = CLI-Bridge бот (запускает CLI-задачи в репозиториях), <code>clawdbot-*-telegram</code> = чат-бот через Clawdbot, <code>droid*</code> = Droid-бот. Управление: <code>systemctl start/stop/restart ${escapeHtml(bot.unit)}</code>.`
+      : `<strong>Systemd unit</strong> — the service name in systemd (unique OS identifier). Naming pattern: <code>cli-bridge-gateway-*</code> = CLI-Bridge bot (runs CLI jobs in repos), <code>clawdbot-*-telegram</code> = chat bot via Clawdbot, <code>droid*</code> = Droid bot. Control: <code>systemctl start/stop/restart ${escapeHtml(bot.unit)}</code>.`,
+  });
+
+  if (bot.scope) {
+    identityEntries.push({
+      term: `scope:${bot.scope}`,
+      def: bot.scope === "system"
+        ? (isRu
+          ? `<strong>Scope: system</strong> — системный сервис (от root). Управление: <code>sudo systemctl ...</code>. ${bots.filter(b=>b.scope==="system").length}/${totalBots} ботов работают так.`
+          : `<strong>Scope: system</strong> — system-level service (as root). Managed via <code>sudo systemctl ...</code>. ${bots.filter(b=>b.scope==="system").length}/${totalBots} bots run this way.`)
+        : (isRu
+          ? `<strong>Scope: user</strong> — пользовательский сервис (от ${escapeHtml(bot.user || "user")}). Управление: <code>systemctl --user ...</code>. Работает без root, изолирован от системных процессов.`
+          : `<strong>Scope: user</strong> — user-level service (as ${escapeHtml(bot.user || "user")}). Via <code>systemctl --user ...</code>. Runs without root, isolated from system processes.`),
+    });
+  }
+
+  groups.push({ title: isRu ? "Идентификация" : "Identity", entries: identityEntries });
+
+  // ── System Status ──
+  const systemEntries = [];
+  systemEntries.push({
+    term: `Status: ${sd.activeState || "-"} (${sd.subState || "-"})`,
+    def: isRu
+      ? `<strong>activeState</strong>: <code>active</code> = работает, <code>inactive</code> = остановлен, <code>failed</code> = упал с ошибкой, <code>activating</code> = запускается (может быть зациклен в auto-restart). <strong>subState</strong>: <code>running</code> = процесс жив, <code>dead</code> = процесс завершён.`
+      : `<strong>activeState</strong>: <code>active</code> = running, <code>inactive</code> = stopped, <code>failed</code> = crashed, <code>activating</code> = starting (may loop). <strong>subState</strong>: <code>running</code> = alive, <code>dead</code> = exited.`,
+  });
+  if (sd.uptimeSeconds != null) {
+    const uptimeH = Math.floor(sd.uptimeSeconds / 3600);
+    systemEntries.push({
+      term: `Uptime: ${fmtSeconds(sd.uptimeSeconds)}`,
+      def: isRu
+        ? `Время с последнего запуска. ${uptimeH > 24 ? "Стабильно работает >24ч." : uptimeH > 1 ? "Работает несколько часов." : "Запущен недавно — возможен перезапуск."}`
+        : `Time since last start. ${uptimeH > 24 ? "Stable >24h." : uptimeH > 1 ? "Running several hours." : "Started recently — possibly restarted."}`,
+    });
+  }
+  systemEntries.push({
+    term: `Restarts: ${fmtInt(sd.nRestarts)}`,
+    def: isRu
+      ? `Автоперезапуски systemd после сбоя. Высокое число = нестабильность. 0 = стабильно с последнего ручного запуска.`
+      : `Auto-restarts by systemd after crashes. High count = instability. 0 = stable since last manual start.`,
+  });
+  systemEntries.push({
+    term: `Memory: ${fmtBytes(sd.memoryCurrentBytes)}`,
+    def: isRu
+      ? `RAM процесса. Clawdbot: 200–500 МБ (Node.js + CLI). Droid: ~100–200 МБ (Python). >1 ГБ = возможна утечка.`
+      : `Process RAM. Clawdbot: 200–500 MB (Node.js + CLI). Droid: ~100–200 MB (Python). >1 GB = possible leak.`,
+  });
+  systemEntries.push({
+    term: `PID: ${sd.mainPid || "-"}`,
+    def: isRu
+      ? `Process ID — уникальный номер процесса. Меняется при перезапуске. Для отладки: <code>strace -p ${sd.mainPid}</code>.`
+      : `Process ID — unique process number. Changes on restart. Debug: <code>strace -p ${sd.mainPid}</code>.`,
+  });
+  groups.push({ title: isRu ? "Состояние системы" : "System Status", entries: systemEntries });
+
+  // ── Unit Details / Environment ──
+  const unitPayload = state.details.unitDetails;
+  if (unitPayload) {
+    const envEntries = [];
+    const uf = unitPayload.unitFile || {};
+
+    if (unitPayload.fragmentPath) {
+      envEntries.push({
+        term: unitPayload.fragmentPath,
+        def: isRu
+          ? `<strong>Fragment path</strong> — файл юнита systemd. Описывает команду запуска, переменные окружения, рабочую директорию, политику перезапуска. Редактировать: <code>sudo nano ${escapeHtml(unitPayload.fragmentPath)}</code>, затем <code>sudo systemctl daemon-reload</code>.`
+          : `<strong>Fragment path</strong> — the systemd unit file. Defines start command, env vars, working dir, restart policy. Edit: <code>sudo nano ${escapeHtml(unitPayload.fragmentPath)}</code>, then <code>sudo systemctl daemon-reload</code>.`,
+      });
+    }
+    if (uf.workingDirectory) {
+      envEntries.push({
+        term: `WorkingDirectory: ${uf.workingDirectory}`,
+        def: isRu ? `Рабочая директория процесса — корень проекта.` : `Process working directory — the project root.`,
+      });
+    }
+    if (uf.execStart) {
+      envEntries.push({
+        term: `ExecStart: ${uf.execStart}`,
+        def: isRu
+          ? `<strong>Команда запуска</strong>. <code>/usr/bin/clawdbot gateway</code> = Clawdbot в режиме gateway (HTTP + Telegram). Для Droid: обычно <code>python3 bot.py</code>.`
+          : `<strong>Start command</strong>. <code>/usr/bin/clawdbot gateway</code> = Clawdbot gateway mode (HTTP + Telegram). For Droid: typically <code>python3 bot.py</code>.`,
+      });
+    }
+
+    const shownEnv = uf.env && uf.env.shown ? uf.env.shown : {};
+    for (const [key, val] of Object.entries(shownEnv)) {
+      let explanation;
+      if (key === "CLAWDBOT_CONFIG_PATH") {
+        explanation = isRu
+          ? `<strong>Путь к конфигу Clawdbot</strong> — JSON-файл, определяющий поведение бота: AI-бэкенд (Claude/Codex/Gemini/Kimi/MiniMax), список workspace, токены Telegram, таймауты, параллельность, режимы (bypass-sandbox, bypass-permissions). Каждый бот имеет свой конфиг.`
+          : `<strong>Clawdbot config path</strong> — JSON file defining bot behavior: AI backend (Claude/Codex/Gemini/Kimi/MiniMax), workspace list, Telegram tokens, timeouts, concurrency, modes (bypass-sandbox, bypass-permissions). Each bot has its own config.`;
+      } else if (key === "CLAWDBOT_GATEWAY_PORT") {
+        explanation = isRu
+          ? `<strong>Порт gateway</strong> — HTTP-порт, где Clawdbot слушает. Telegram-коннектор и cli-bridge подключаются сюда. Совпадает с <code>port</code> в карточке.`
+          : `<strong>Gateway port</strong> — HTTP port where Clawdbot listens. Telegram connector and cli-bridge connect here. Matches <code>port</code> in the card.`;
+      } else if (key === "CLAWDBOT_STATE_DIR") {
+        explanation = isRu
+          ? `<strong>Директория состояния</strong> — папка, где Clawdbot хранит данные: историю сессий (SQLite), логи токенов, очередь задач. Именно отсюда дашборд берёт статистику (токены, стоимость, ошибки). Путь уникален для каждого бота.`
+          : `<strong>State directory</strong> — folder where Clawdbot stores data: session history (SQLite), token logs, job queue. The dashboard reads stats from here (tokens, cost, errors). Path is unique per bot.`;
+      } else {
+        explanation = isRu
+          ? `Переменная окружения: <code>${escapeHtml(key)}=${escapeHtml(val)}</code>`
+          : `Environment variable: <code>${escapeHtml(key)}=${escapeHtml(val)}</code>`;
+      }
+      envEntries.push({ term: `${key}=${val}`, def: explanation });
+    }
+
+    const hiddenKeys = uf.env && uf.env.hiddenKeys ? uf.env.hiddenKeys : [];
+    if (hiddenKeys.length) {
+      envEntries.push({
+        term: isRu ? `Скрытые: ${hiddenKeys.join(", ")}` : `Hidden: ${hiddenKeys.join(", ")}`,
+        def: isRu
+          ? `Скрыты из безопасности. Обычно <code>PATH</code>, <code>TERM</code>, <code>FORCE_COLOR</code> — не несут конфигурационной ценности.`
+          : `Hidden for security. Typically <code>PATH</code>, <code>TERM</code>, <code>FORCE_COLOR</code> — no config value.`,
+      });
+    }
+    if (envEntries.length) groups.push({ title: isRu ? "Юнит и окружение" : "Unit & Environment", entries: envEntries });
+  }
+
+  // ── Usage & Cost ──
+  const usageEntries = [];
+  usageEntries.push({
+    term: isRu ? `Токены (24ч): ${fmtInt(w24.tokens)}` : `Tokens (24h): ${fmtInt(w24.tokens)}`,
+    def: isRu
+      ? `<strong>Токены</strong> за 24ч. Токен ≈ 4 англ. символа / 1-2 рус. символа. AI тарифицируются за input + output токены.`
+      : `<strong>Tokens</strong> in 24h. A token ≈ 4 English chars / 1-2 Russian chars. AI models charge per input + output tokens.`,
+  });
+  usageEntries.push({
+    term: isRu ? `Стоимость (24ч): ${fmtMoneyUsd(w24.costUSD)}` : `Cost (24h): ${fmtMoneyUsd(w24.costUSD)}`,
+    def: isRu
+      ? `Стоимость API-вызовов за 24ч в USD. Claude Opus — дороже, Codex/MiniMax — дешевле.`
+      : `API call cost in 24h (USD). Claude Opus is most expensive, Codex/MiniMax are cheaper.`,
+    compare: isRu
+      ? `Этот бот #${costRank} из ${totalBots} по общей стоимости. Доля: ${thisCostPct}% ($${totalCost.toFixed(2)} всего).`
+      : `This bot is #${costRank} of ${totalBots} by total cost. Share: ${thisCostPct}% ($${totalCost.toFixed(2)} total).`,
+  });
+  if (allTime.tokens) {
+    usageEntries.push({
+      term: isRu ? `Всего: ${fmtInt(allTime.tokens)} ток., ${fmtMoneyUsd(allTime.costUSD)}` : `All-time: ${fmtInt(allTime.tokens)} tok, ${fmtMoneyUsd(allTime.costUSD)}`,
+      def: isRu
+        ? `${fmtInt(allTime.requests)} запросов, ${fmtInt(allTime.errors)} ошибок за всё время.`
+        : `${fmtInt(allTime.requests)} requests, ${fmtInt(allTime.errors)} errors lifetime.`,
+    });
+  }
+  if (usage.sessionsFiles != null) {
+    usageEntries.push({
+      term: isRu ? `Сессии: ${fmtInt(usage.sessionsFiles)} (${fmtBytes(usage.sessionsBytes)})` : `Sessions: ${fmtInt(usage.sessionsFiles)} (${fmtBytes(usage.sessionsBytes)})`,
+      def: isRu
+        ? `Файлы сессий в state-директории. Каждая сессия = отдельный диалог или CLI-задача.`
+        : `Session files in state dir. Each session = separate conversation or CLI job.`,
+    });
+  }
+  groups.push({ title: isRu ? "Использование и стоимость" : "Usage & Cost", entries: usageEntries });
+
+  // ── Providers ──
+  if (providerNames.length) {
+    const providerEntries = [];
+    for (const name of providerNames) {
+      const prov = providers[name];
+      const models = prov.models ? Object.keys(prov.models) : [];
+      let provExplain;
+      if (name === "anthropic") {
+        provExplain = isRu
+          ? `<strong>Anthropic</strong> — провайдер Claude. Модели: ${models.join(", ")}. Самый дорогой (~$15/$75 за 1M input/output), но самый мощный.`
+          : `<strong>Anthropic</strong> — Claude provider. Models: ${models.join(", ")}. Most expensive (~$15/$75 per 1M in/out), but most capable.`;
+      } else if (name.includes("codex") || name.includes("openai")) {
+        provExplain = isRu
+          ? `<strong>${escapeHtml(name)}</strong> — Codex/GPT (OpenAI). Модели: ${models.join(", ")}. Быстрый для кода, дешевле Claude.`
+          : `<strong>${escapeHtml(name)}</strong> — Codex/GPT (OpenAI). Models: ${models.join(", ")}. Fast for code, cheaper than Claude.`;
+      } else if (name.includes("minimax")) {
+        provExplain = isRu
+          ? `<strong>${escapeHtml(name)}</strong> — MiniMax. Модели: ${models.join(", ")}. Альтернативный провайдер, обычно самый дешёвый.`
+          : `<strong>${escapeHtml(name)}</strong> — MiniMax. Models: ${models.join(", ")}. Alternative provider, typically cheapest.`;
+      } else if (name.includes("kimi")) {
+        provExplain = isRu
+          ? `<strong>${escapeHtml(name)}</strong> — Kimi (Moonshot AI). Модели: ${models.join(", ")}. Специализация на коде.`
+          : `<strong>${escapeHtml(name)}</strong> — Kimi (Moonshot AI). Models: ${models.join(", ")}. Code specialist.`;
+      } else if (name.includes("gemini") || name.includes("google")) {
+        provExplain = isRu
+          ? `<strong>${escapeHtml(name)}</strong> — Gemini (Google). Модели: ${models.join(", ")}. Большой контекст.`
+          : `<strong>${escapeHtml(name)}</strong> — Gemini (Google). Models: ${models.join(", ")}. Large context window.`;
+      } else {
+        provExplain = isRu
+          ? `<strong>${escapeHtml(name)}</strong> — AI-провайдер. Модели: ${models.join(", ") || "-"}.`
+          : `<strong>${escapeHtml(name)}</strong> — AI provider. Models: ${models.join(", ") || "-"}.`;
+      }
+      providerEntries.push({
+        term: `${name}: ${fmtInt(prov.tokens)} tok, ${fmtMoneyUsd(prov.costUSD)}`,
+        def: provExplain,
+      });
+    }
+    groups.push({ title: isRu ? "Провайдеры AI" : "AI Providers", entries: providerEntries });
+  }
+
+  // ── Health ──
+  const healthEntries = [];
+  const issues = (bot.health && Array.isArray(bot.health.issues)) ? bot.health.issues : [];
+  if (issues.length) {
+    for (const issue of issues) {
+      healthEntries.push({
+        term: issue.message || issue.key || "Issue",
+        def: isRu
+          ? `<strong>Severity: ${escapeHtml(issue.severity || "?")}</strong>. ${issue.hint ? escapeHtml(issue.hint) : "Обнаружено в логах."} ${issue.key && issue.key.includes("oauth") ? "Решается кнопкой «Sync Claude auth» + Restart." : ""}`
+          : `<strong>Severity: ${escapeHtml(issue.severity || "?")}</strong>. ${issue.hint ? escapeHtml(issue.hint) : "Detected in logs."} ${issue.key && issue.key.includes("oauth") ? "Fix: \"Sync Claude auth\" + Restart." : ""}`,
+      });
+    }
+  } else {
+    healthEntries.push({
+      term: isRu ? "Все системы работают" : "All systems operational",
+      def: isRu
+        ? "Нет проблем. Дашборд проверяет: OAuth-ошибки, конфликты портов, отсутствие бинарников, ошибки Telegram."
+        : "No issues. Dashboard checks: OAuth errors, port conflicts, missing binaries, Telegram connection errors.",
+    });
+  }
+  groups.push({ title: isRu ? "Здоровье" : "Health", entries: healthEntries });
+
+  // Render
+  box.innerHTML = groups.map(g => `
+    <div class="fieldGuideGroup">
+      <div class="fieldGuideGroupTitle">${escapeHtml(g.title)}</div>
+      ${g.entries.map(e => `
+        <div class="fieldGuideEntry">
+          <div class="fieldGuideTerm">${escapeHtml(e.term)}</div>
+          <div class="fieldGuideDef">${e.def}</div>
+          ${e.compare ? `<div class="fieldGuideCompare">${e.compare}</div>` : ""}
+        </div>
+      `).join("")}
+    </div>
+  `).join("");
+}
+
+// ============================================
+// Log Download
+// ============================================
+function downloadLogs() {
+  const raw = state.details.logsRaw;
+  const unit = state.details.logsUnit || "logs";
+  if (!raw) { showToast("No logs to download", "error"); return; }
+  const blob = new Blob([raw], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${unit.replace(/[^a-zA-Z0-9@._-]/g, "_")}_${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.log`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function initDetailsUi() {
@@ -2364,6 +3752,7 @@ function initDetailsUi() {
 }
 
 function openDetails(unit, { updateUrl = true } = {}) {
+  hideHoverPreview();
   if (!state.details.inited) initDetailsUi();
   if (!state.data) return null;
   const bot = (state.data && state.data.bots || []).find(b => b.unit === unit);
@@ -2382,6 +3771,68 @@ function openDetails(unit, { updateUrl = true } = {}) {
   return true;
 }
 
+/* ── Live Uptime Ticker ── */
+let _uptimeTickerTimer = null;
+let _uptimeTickerStartMs = 0;
+let _uptimeTickerBaseSeconds = 0;
+
+function startUptimeTicker(bot) {
+  stopUptimeTicker();
+  const sd = bot.systemd || {};
+  if (sd.activeState !== "active" || !Number.isFinite(sd.uptimeSeconds) || sd.uptimeSeconds <= 0) return;
+
+  _uptimeTickerBaseSeconds = sd.uptimeSeconds;
+  _uptimeTickerStartMs = Date.now();
+
+  // Find or create the uptime chip in detail meta
+  updateUptimeChip();
+  _uptimeTickerTimer = setInterval(updateUptimeChip, 1000);
+}
+
+function stopUptimeTicker() {
+  if (_uptimeTickerTimer) {
+    clearInterval(_uptimeTickerTimer);
+    _uptimeTickerTimer = null;
+  }
+}
+
+function updateUptimeChip() {
+  const metaEl = $("detailMetaLine");
+  if (!metaEl) return;
+
+  const elapsed = (Date.now() - _uptimeTickerStartMs) / 1000;
+  const totalSec = Math.floor(_uptimeTickerBaseSeconds + elapsed);
+  const d = Math.floor(totalSec / 86400);
+  const h = Math.floor((totalSec % 86400) / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const u = normalizeLang(state.ui.lang) === "ru" ? { d: "д", h: "ч", m: "м", s: "с" } : { d: "d", h: "h", m: "m", s: "s" };
+
+  let text;
+  if (d > 0) text = `${d}${u.d} ${h}${u.h} ${m}${u.m}`;
+  else if (h > 0) text = `${h}${u.h} ${m}${u.m}`;
+  else text = `${m}${u.m}`;
+  const secStr = `${String(s).padStart(2, "0")}${u.s}`;
+
+  // Update existing uptimeLive chip or find uptime chip
+  let liveChip = metaEl.querySelector(".uptimeLive");
+  if (!liveChip) {
+    // Find a chip that looks like uptime (contains "d " or "h " or "m ")
+    const chips = metaEl.querySelectorAll(".metaChip");
+    for (const chip of chips) {
+      const txt = chip.textContent || "";
+      if (/\d+[dhдч]\s/.test(txt) && !chip.querySelector("a") && !chip.querySelector("code")) {
+        chip.classList.add("uptimeLive");
+        liveChip = chip;
+        break;
+      }
+    }
+  }
+  if (liveChip) {
+    liveChip.innerHTML = `${text} <span class="uptimeLiveSec">${secStr}</span>`;
+  }
+}
+
 function closeDetails({ updateUrl = true } = {}) {
   if (updateUrl && getUrlUnit()) {
     // Prefer "real" back navigation, so Back/Forward works naturally and we don't
@@ -2391,12 +3842,23 @@ function closeDetails({ updateUrl = true } = {}) {
     return;
   }
 
-  // Stop log follow mode
+  // Stop log follow mode and uptime ticker
   setFollowLogs(false);
+  stopUptimeTicker();
 
   const modal = $("detailModal");
-  if (modal) modal.hidden = true;
-  document.body.classList.remove("modalOpen");
+  if (modal) {
+    modal.classList.add("modalClosing");
+    const onEnd = () => {
+      modal.removeEventListener("animationend", onEnd);
+      modal.classList.remove("modalClosing");
+      modal.hidden = true;
+      document.body.classList.remove("modalOpen");
+    };
+    modal.addEventListener("animationend", onEnd);
+    // Safety fallback in case animationend doesn't fire
+    setTimeout(onEnd, 250);
+  }
 
   state.selectedUnit = null;
   if (state.data) renderBotsTable(state.data);
@@ -2437,13 +3899,28 @@ async function refresh() {
     const r = await fetch("/api/bots", { cache: "no-store" });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
+
+    // Detect status changes before updating state
+    detectStatusChanges(state.data, data);
+
+    state.prevData = state.data;
+    const isFirstLoad = !state.data;
     state.data = data;
     setConnStatus(true);
 
+    // Skip row animation on auto-refresh (only animate on first load/filter changes)
+    if (!isFirstLoad) state._skipRowAnim = true;
+
     renderHeader(data);
 
+    renderStatusStrip(data);
     renderSummary(data);
+    renderFleetBar(data);
+    renderInsights(data);
+    renderFilterChips(data);
     renderBotsTable(data);
+    renderIssuesBadge(data);
+    state._skipRowAnim = false;
 
     if (state.selectedUnit) {
       const still = (data.bots || []).find(b => b.unit === state.selectedUnit);
@@ -2482,8 +3959,38 @@ function setAuto(on) {
   if (ringEl) ringEl.style.display = on ? "" : "none";
 }
 
+/* ── Sort header indicators ── */
+function updateSortHeaders() {
+  const current = state.ui.sort || "name";
+  for (const th of document.querySelectorAll("th[data-sort]")) {
+    const key = th.dataset.sort;
+    const base = key.replace(/_(asc|desc)$/, "");
+    const currentBase = current.replace(/_(asc|desc)$/, "");
+    const isActive = base === currentBase;
+    th.classList.toggle("sortActive", isActive);
+    th.classList.toggle("sortDesc", isActive && current.endsWith("_desc"));
+    th.classList.toggle("sortAsc", isActive && !current.endsWith("_desc"));
+  }
+}
+
+/* ── Loading Skeleton ── */
+function showLoadingSkeleton() {
+  const summary = $("summary");
+  if (summary && !summary.children.length) {
+    summary.innerHTML = Array.from({ length: 4 }, () =>
+      `<div class="pill skeleton skeletonPill"></div>`
+    ).join("");
+  }
+  const fleet = $("fleetBar");
+  if (fleet && !fleet.children.length) {
+    fleet.innerHTML = `<div class="skeleton skeletonBar" style="flex:1"></div>`;
+  }
+}
+
 window.addEventListener("DOMContentLoaded", () => {
+  showLoadingSkeleton();
   initConfirmUi();
+  initFieldGuide();
   $("refreshBtn").addEventListener("click", refresh);
   $("autoBtn").addEventListener("click", () => setAuto(!state.auto));
   $("closeDetailBtn").addEventListener("click", closeDetails);
@@ -2538,13 +4045,44 @@ window.addEventListener("DOMContentLoaded", () => {
     showSelect.addEventListener("change", () => {
       state.ui.show = showSelect.value || "all";
       lsSet("show", state.ui.show);
-      if (state.data) renderBotsTable(state.data);
+      // Reset chip filter when using dropdown
+      state.chipFilter = "all";
+      if (state.data) {
+        renderFilterChips(state.data);
+        renderBotsTable(state.data);
+      }
     });
   }
   if (sortSelect) {
     sortSelect.addEventListener("change", () => {
       state.ui.sort = sortSelect.value || "name";
       lsSet("sort", state.ui.sort);
+      if (state.data) renderBotsTable(state.data);
+    });
+  }
+
+  /* ── Sortable column headers ── */
+  for (const th of document.querySelectorAll("th[data-sort]")) {
+    th.addEventListener("click", () => {
+      const sortKey = th.dataset.sort;
+      if (!sortKey) return;
+      // Toggle direction if clicking the same column
+      if (state.ui.sort === sortKey) {
+        // Already sorting by this — toggle between asc/desc variant
+        if (sortKey.endsWith("_desc")) {
+          state.ui.sort = sortKey.replace(/_desc$/, "_asc");
+        } else if (sortKey.endsWith("_asc")) {
+          state.ui.sort = sortKey.replace(/_asc$/, "_desc");
+        } else {
+          // "name" sort — just keep it
+          state.ui.sort = sortKey;
+        }
+      } else {
+        state.ui.sort = sortKey;
+      }
+      lsSet("sort", state.ui.sort);
+      if (sortSelect) sortSelect.value = state.ui.sort;
+      updateSortHeaders();
       if (state.data) renderBotsTable(state.data);
     });
   }
@@ -2581,8 +4119,273 @@ window.addEventListener("DOMContentLoaded", () => {
   const exportBtn = $("exportCsvBtn");
   if (exportBtn) exportBtn.addEventListener("click", exportCsv);
 
+  /* ── Notifications ── */
+  const notifBtn = $("notifBtn");
+  if (notifBtn) {
+    // Update visual state
+    const updateNotifBtn = () => {
+      if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+        notifBtn.classList.add("active");
+        notifBtn.title = t("notif_enabled");
+      }
+    };
+    updateNotifBtn();
+    notifBtn.addEventListener("click", async () => {
+      await requestNotifications();
+      updateNotifBtn();
+    });
+  }
+
+  /* ── Command Palette ── */
+  const cmdPalette = $("cmdPalette");
+  const cmdPaletteBg = $("cmdPaletteBg");
+  const cmdPaletteInput = $("cmdPaletteInput");
+  const cmdPaletteResults = $("cmdPaletteResults");
+
+  let cmdActiveIdx = 0;
+  let cmdItems = [];
+
+  function openCmdPalette() {
+    if (!cmdPalette) return;
+    cmdPalette.hidden = false;
+    document.body.classList.add("modalOpen");
+    cmdPaletteInput.value = "";
+    cmdActiveIdx = 0;
+    renderCmdResults("");
+    setTimeout(() => cmdPaletteInput.focus(), 50);
+  }
+
+  function closeCmdPalette() {
+    if (!cmdPalette) return;
+    cmdPalette.hidden = true;
+    document.body.classList.remove("modalOpen");
+  }
+
+  function fuzzyMatch(query, text) {
+    if (!query) return { match: true, score: 0, indices: [] };
+    const q = query.toLowerCase();
+    const t = text.toLowerCase();
+    // Simple substring match with position tracking
+    const idx = t.indexOf(q);
+    if (idx >= 0) {
+      const indices = [];
+      for (let i = idx; i < idx + q.length; i++) indices.push(i);
+      return { match: true, score: idx === 0 ? 100 : 80, indices };
+    }
+    // Character-by-character fuzzy
+    let qi = 0;
+    const indices = [];
+    let score = 0;
+    for (let ti = 0; ti < t.length && qi < q.length; ti++) {
+      if (t[ti] === q[qi]) {
+        indices.push(ti);
+        score += (ti === 0 || t[ti - 1] === " " || t[ti - 1] === "-" || t[ti - 1] === "_") ? 10 : 5;
+        qi++;
+      }
+    }
+    if (qi === q.length) return { match: true, score, indices };
+    return { match: false, score: 0, indices: [] };
+  }
+
+  function highlightFuzzy(text, indices) {
+    if (!indices.length) return escapeHtml(text);
+    const chars = [...text];
+    const set = new Set(indices);
+    let out = "";
+    let inMark = false;
+    for (let i = 0; i < chars.length; i++) {
+      if (set.has(i) && !inMark) { out += "<mark>"; inMark = true; }
+      else if (!set.has(i) && inMark) { out += "</mark>"; inMark = false; }
+      out += escapeHtml(chars[i]);
+    }
+    if (inMark) out += "</mark>";
+    return out;
+  }
+
+  function renderCmdResults(query) {
+    if (!cmdPaletteResults) return;
+    const q = String(query || "").trim();
+    const bots = state.data ? (state.data.bots || []) : [];
+    cmdItems = [];
+
+    // Bot results
+    const botResults = [];
+    for (const bot of bots) {
+      const name = bot.displayName || bot.unit;
+      const searchText = [name, bot.telegramHandle, bot.unit, bot.type, bot.profile].filter(Boolean).join(" ");
+      const m = fuzzyMatch(q, searchText);
+      if (!m.match) continue;
+      const nameMatch = fuzzyMatch(q, name);
+      botResults.push({ bot, score: m.score, nameMatch });
+    }
+    botResults.sort((a, b) => b.score - a.score);
+
+    // Quick actions
+    const actions = [
+      { icon: "\u{1F504}", name: t("cmd_refresh"), meta: "R", action: () => { closeCmdPalette(); refresh(); } },
+      { icon: "\u{1F4E6}", name: t("cmd_export"), meta: "CSV", action: () => { closeCmdPalette(); exportCsv(); } },
+      { icon: "\u{1F514}", name: t("cmd_notif"), meta: "N", action: () => { closeCmdPalette(); requestNotifications(); } },
+      { icon: "\u{1F50D}", name: t("cmd_filter"), meta: "/", action: () => { closeCmdPalette(); const fi = $("filterInput"); if (fi) fi.focus(); } },
+      { icon: "\u{2328}", name: t("cmd_shortcuts"), meta: "?", action: () => { closeCmdPalette(); showShortcuts(); } },
+      { icon: "\u{1F4CB}", name: t("cmd_compact"), meta: "", action: () => { closeCmdPalette(); setViewCompact(!state.viewCompact); } },
+    ];
+
+    const filteredActions = q
+      ? actions.filter(a => fuzzyMatch(q, a.name + " " + a.meta).match)
+      : actions;
+
+    let html = "";
+
+    // Bots section
+    if (botResults.length) {
+      html += `<div class="cmdPaletteGroup"><div class="cmdPaletteGroupLabel">${escapeHtml(t("cmd_group_bots"))}</div>`;
+      const shown = botResults.slice(0, 8);
+      for (const { bot, nameMatch } of shown) {
+        const name = bot.displayName || bot.unit;
+        const dotCls = statusDotClass(bot);
+        const nameHtml = nameMatch.match && nameMatch.indices.length ? highlightFuzzy(name, nameMatch.indices) : escapeHtml(name);
+        const meta = [bot.telegramHandle, bot.type].filter(Boolean).join(" \u2022 ");
+        const idx = cmdItems.length;
+        cmdItems.push({
+          type: "bot",
+          bot,
+          action: () => { closeCmdPalette(); openDetails(bot.unit); },
+        });
+        html += `
+          <div class="cmdPaletteItem${idx === cmdActiveIdx ? " cmdActive" : ""}" data-cmd-idx="${idx}">
+            <span class="cmdPaletteItemIcon"><span class="cmdPaletteItemDot ${dotCls}"></span></span>
+            <div class="cmdPaletteItemBody">
+              <div class="cmdPaletteItemName">${nameHtml}</div>
+              <div class="cmdPaletteItemMeta">${escapeHtml(meta)}</div>
+            </div>
+            <span class="cmdPaletteItemRight">${escapeHtml(fmtMoneyUsd(((bot.usage && bot.usage.windows && bot.usage.windows["24h"]) || {}).costUSD || 0))} 24h</span>
+          </div>`;
+      }
+      html += `</div>`;
+    }
+
+    // Actions section
+    if (filteredActions.length) {
+      html += `<div class="cmdPaletteGroup"><div class="cmdPaletteGroupLabel">${escapeHtml(t("cmd_group_actions"))}</div>`;
+      for (const a of filteredActions) {
+        const idx = cmdItems.length;
+        cmdItems.push({ type: "action", action: a.action });
+        const nameHtml = q ? highlightFuzzy(a.name, fuzzyMatch(q, a.name).indices) : escapeHtml(a.name);
+        html += `
+          <div class="cmdPaletteItem${idx === cmdActiveIdx ? " cmdActive" : ""}" data-cmd-idx="${idx}">
+            <span class="cmdPaletteItemIcon">${a.icon}</span>
+            <div class="cmdPaletteItemBody">
+              <div class="cmdPaletteItemName">${nameHtml}</div>
+              <div class="cmdPaletteItemMeta">${escapeHtml(a.meta)}</div>
+            </div>
+          </div>`;
+      }
+      html += `</div>`;
+    }
+
+    // Per-bot quick actions (when query matches a bot clearly)
+    if (botResults.length === 1 || (botResults.length > 0 && botResults[0].score >= 80)) {
+      const topBot = botResults[0].bot;
+      const activeState = String(topBot.systemd && topBot.systemd.activeState || "");
+      const botActions = [];
+      const bName = topBot.displayName || topBot.unit;
+      if (activeState === "active") {
+        botActions.push({ icon: "\u{1F6D1}", name: t("cmd_stop", { name: bName }), action: () => { closeCmdPalette(); doAction(topBot.unit, "stop"); } });
+        botActions.push({ icon: "\u{1F504}", name: t("cmd_restart", { name: bName }), action: () => { closeCmdPalette(); doAction(topBot.unit, "restart"); } });
+      } else {
+        botActions.push({ icon: "\u{25B6}\u{FE0F}", name: t("cmd_start", { name: bName }), action: () => { closeCmdPalette(); doAction(topBot.unit, "start"); } });
+      }
+      botActions.push({ icon: "\u{1F4C4}", name: t("cmd_logs", { name: bName }), action: () => { closeCmdPalette(); openDetails(topBot.unit); setTimeout(() => { const btn = $("loadLogsBtn"); if (btn) btn.click(); }, 300); } });
+
+      html += `<div class="cmdPaletteGroup"><div class="cmdPaletteGroupLabel">${escapeHtml(t("cmd_group_quick"))}</div>`;
+      for (const a of botActions) {
+        const idx = cmdItems.length;
+        cmdItems.push({ type: "action", action: a.action });
+        html += `
+          <div class="cmdPaletteItem${idx === cmdActiveIdx ? " cmdActive" : ""}" data-cmd-idx="${idx}">
+            <span class="cmdPaletteItemIcon">${a.icon}</span>
+            <div class="cmdPaletteItemBody">
+              <div class="cmdPaletteItemName">${escapeHtml(a.name)}</div>
+            </div>
+          </div>`;
+      }
+      html += `</div>`;
+    }
+
+    if (!html) {
+      html = `<div class="cmdPaletteEmpty">${escapeHtml(t("cmd_no_results"))}</div>`;
+    }
+
+    cmdPaletteResults.innerHTML = html;
+
+    // Click handlers for items
+    for (const el of cmdPaletteResults.querySelectorAll("[data-cmd-idx]")) {
+      el.addEventListener("click", () => {
+        const idx = parseInt(el.dataset.cmdIdx, 10);
+        if (cmdItems[idx] && cmdItems[idx].action) cmdItems[idx].action();
+      });
+      el.addEventListener("mouseenter", () => {
+        cmdActiveIdx = parseInt(el.dataset.cmdIdx, 10);
+        updateCmdActive();
+      });
+    }
+  }
+
+  function updateCmdActive() {
+    if (!cmdPaletteResults) return;
+    for (const el of cmdPaletteResults.querySelectorAll(".cmdPaletteItem")) {
+      const idx = parseInt(el.dataset.cmdIdx, 10);
+      el.classList.toggle("cmdActive", idx === cmdActiveIdx);
+    }
+    // Scroll active into view
+    const active = cmdPaletteResults.querySelector(".cmdActive");
+    if (active) active.scrollIntoView({ block: "nearest" });
+  }
+
+  if (cmdPaletteInput) {
+    cmdPaletteInput.addEventListener("input", () => {
+      cmdActiveIdx = 0;
+      renderCmdResults(cmdPaletteInput.value);
+    });
+    cmdPaletteInput.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        cmdActiveIdx = Math.min(cmdActiveIdx + 1, cmdItems.length - 1);
+        updateCmdActive();
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        cmdActiveIdx = Math.max(cmdActiveIdx - 1, 0);
+        updateCmdActive();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (cmdItems[cmdActiveIdx] && cmdItems[cmdActiveIdx].action) {
+          cmdItems[cmdActiveIdx].action();
+        }
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        closeCmdPalette();
+      }
+    });
+  }
+
+  if (cmdPaletteBg) cmdPaletteBg.addEventListener("click", closeCmdPalette);
+  const cmdKBtn = $("cmdKBtn");
+  if (cmdKBtn) cmdKBtn.addEventListener("click", openCmdPalette);
+
   /* ── Global keyboard shortcuts ── */
   document.addEventListener("keydown", (e) => {
+    // Cmd/Ctrl+K opens command palette from anywhere
+    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      e.preventDefault();
+      const palette = $("cmdPalette");
+      if (palette && !palette.hidden) closeCmdPalette();
+      else openCmdPalette();
+      return;
+    }
+
+    // Skip if command palette is open
+    if (cmdPalette && !cmdPalette.hidden) return;
+
     // Skip if inside input/select/textarea
     const tag = String(e.target && e.target.tagName || "").toLowerCase();
     if (tag === "input" || tag === "textarea" || tag === "select" || (e.target && e.target.isContentEditable)) return;
@@ -2611,11 +4414,9 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     if (e.key === "r" || e.key === "R") {
-      if (!isDetailOpen) {
-        e.preventDefault();
-        refresh();
-        return;
-      }
+      e.preventDefault();
+      refresh();
+      return;
     }
 
     if (e.key === "/") {
@@ -2638,6 +4439,18 @@ window.addEventListener("DOMContentLoaded", () => {
         return;
       }
     }
+
+    if ((e.key === "l" || e.key === "L") && isDetailOpen) {
+      e.preventDefault();
+      if (state.details.logsUnit) loadLogs(state.details.logsUnit);
+      return;
+    }
+
+    if (e.key === "n" || e.key === "N") {
+      e.preventDefault();
+      requestNotifications();
+      return;
+    }
   });
 
   /* Shortcuts overlay close handlers */
@@ -2652,6 +4465,23 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  /* ── Page visibility: pause auto-refresh when hidden ── */
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      if (state.timer) clearInterval(state.timer);
+      state.timer = null;
+      stopCountdown();
+    } else if (state.auto) {
+      refresh();
+      state.timer = setInterval(() => {
+        refresh();
+        startCountdown();
+      }, REFRESH_INTERVAL);
+      startCountdown();
+    }
+  });
+
+  updateSortHeaders();
   const autoStored = lsGet("auto", "1");
   setAuto(autoStored !== "0");
   refresh();
