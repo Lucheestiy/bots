@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Bots Command Center — Vision</title>
     <meta name="description" content="A futuristic vision of the bots dashboard." />
-    <link rel="stylesheet" href="/vision.css?v=6" />
+    <link rel="stylesheet" href="/vision.css?v=7" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -49,6 +49,12 @@
           <span class="status-text">Live</span>
         </div>
         <div class="time-display" id="timeDisplay">--:--</div>
+        <button id="shortcutsBtn" class="btn btn-ghost" title="Keyboard shortcuts (?)" onclick="toggleShortcutsPanel()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="4" width="20" height="16" rx="2"/>
+            <path d="M6 8h.001M10 8h.001M14 8h.001M18 8h.001M8 12h.001M12 12h.001M16 12h.001M8 16h8"/>
+          </svg>
+        </button>
         <a href="/" class="btn btn-ghost" title="Back to original">← Original</a>
         <select id="langSelect" class="select" aria-label="Language">
           <option value="en">EN</option>
@@ -61,7 +67,13 @@
           </svg>
           Refresh
         </button>
-        <button id="autoBtn" class="btn btn-toggle" title="Auto refresh">Auto</button>
+        <select id="autoIntervalSelect" class="select select-small" aria-label="Auto-refresh interval" title="Auto-refresh interval">
+          <option value="0">Off</option>
+          <option value="15000">15s</option>
+          <option value="30000" selected>30s</option>
+          <option value="60000">1m</option>
+          <option value="120000">2m</option>
+        </select>
       </div>
     </header>
 
@@ -79,7 +91,7 @@
           </div>
           <div class="stat-content">
             <div class="stat-label">Active Bots</div>
-            <div class="stat-value" id="statBots">-</div>
+            <div class="stat-value skeleton-loading" id="statBots">-</div>
             <div class="stat-sub" id="statBotsSub">of - total</div>
           </div>
           <div class="stat-sparkline" id="sparklineBots"></div>
@@ -93,7 +105,7 @@
           </div>
           <div class="stat-content">
             <div class="stat-label">Tokens (24h)</div>
-            <div class="stat-value" id="statTokens">-</div>
+            <div class="stat-value skeleton-loading" id="statTokens">-</div>
             <div class="stat-sub" id="statTokensSub">- requests</div>
           </div>
           <div class="stat-sparkline" id="sparklineTokens"></div>
@@ -108,7 +120,7 @@
           </div>
           <div class="stat-content">
             <div class="stat-label">Cost (24h)</div>
-            <div class="stat-value" id="statCost">-</div>
+            <div class="stat-value skeleton-loading" id="statCost">-</div>
             <div class="stat-sub">USD estimated</div>
           </div>
           <div class="stat-sparkline" id="sparklineCost"></div>
@@ -124,7 +136,7 @@
           </div>
           <div class="stat-content">
             <div class="stat-label">Errors (24h)</div>
-            <div class="stat-value" id="statErrors">-</div>
+            <div class="stat-value skeleton-loading" id="statErrors">-</div>
             <div class="stat-sub">stopReason=error</div>
           </div>
           <div class="stat-sparkline" id="sparklineErrors"></div>
@@ -164,6 +176,12 @@
           </select>
         </div>
         <div class="filters-meta">
+          <button id="compactBtn" class="btn btn-icon btn-ghost" title="Compact view" aria-label="Toggle compact view">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+              <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+            </svg>
+          </button>
           <span id="visibleCount" class="count-badge">- / -</span>
           <span class="timezone" id="tzLabel"></span>
         </div>
@@ -195,6 +213,7 @@
       <div class="footer-right">
         <span class="updated" id="updatedAt">Updated: --</span>
         <span class="relative" id="relativeTime">--</span>
+        <span class="next-refresh muted" id="nextRefresh"></span>
       </div>
     </footer>
 
@@ -371,6 +390,21 @@
     <!-- Toast container -->
     <div id="toastContainer" class="toast-container"></div>
 
-    <script src="/vision2.js?v=3"></script>
+    <!-- Keyboard shortcuts panel -->
+    <div id="shortcutsPanel" class="shortcuts-panel" hidden>
+      <div class="shortcuts-card">
+        <div class="shortcuts-header">
+          <h3 class="shortcuts-title">Keyboard Shortcuts</h3>
+          <button class="btn btn-icon btn-ghost" onclick="document.getElementById('shortcutsPanel').hidden=true" aria-label="Close">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        <div class="shortcuts-list"></div>
+      </div>
+    </div>
+
+    <script src="/vision2.js?v=5"></script>
   </body>
 </html>

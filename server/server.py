@@ -289,6 +289,18 @@ _LOG_ISSUE_RULES: list[dict[str, object]] = [
 ]
 
 
+def _is_ignorable_addr_in_use_line(line: str) -> bool:
+    """Filter non-fatal EADDRINUSE noise from optional browser relay startup."""
+    low = line.lower()
+    if "eaddrinuse" not in low:
+        return False
+    if "chrome extension relay init failed" in low:
+        return True
+    if "[browser/server]" in low and "18863" in low:
+        return True
+    return False
+
+
 def _scan_recent_log_issues(logs: str) -> list[dict[str, object]]:
     if not logs:
         return []
@@ -303,6 +315,8 @@ def _scan_recent_log_issues(logs: str) -> list[dict[str, object]]:
         last_line = None
         for ln in reversed(lines):
             if pat.search(ln):
+                if str(rule.get("key") or "") == "addr_in_use" and _is_ignorable_addr_in_use_line(ln):
+                    continue
                 last_line = ln
                 break
         if not last_line:

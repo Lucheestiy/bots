@@ -636,9 +636,8 @@ function renderBots(data) {
     if (sortMode === "errors24h_desc") return (ub.errors || 0) - (ua.errors || 0);
     if (sortMode === "uptime_desc") return (B.systemd.uptimeSeconds || 0) - (A.systemd.uptimeSeconds || 0);
     if (sortMode === "last_activity_desc") return getBotLastActivityMs(B) - getBotLastActivityMs(A);
-    const an = String(A.displayName || A.unit || "").toLowerCase();
-    const bn = String(B.displayName || B.unit || "").toLowerCase();
-    return an < bn ? -1 : an > bn ? 1 : 0;
+    // "name" mode preserves server/config order from /api/bots.
+    return a.idx - b.idx;
   });
 
   state.visibleUnits = filtered.map(({ bot }) => bot.unit);

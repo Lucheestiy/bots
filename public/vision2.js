@@ -21,12 +21,31 @@ function lsSet(key, value) {
   try { localStorage.setItem(LS_PREFIX + key, String(value)); } catch { /* ignore */ }
 }
 
+// Pinned bots (favorites)
+function getPinnedSet() {
+  try {
+    const raw = lsGet("pinned", "");
+    return new Set(raw ? raw.split(",").filter(Boolean) : []);
+  } catch { return new Set(); }
+}
+function savePinnedSet(s) {
+  lsSet("pinned", Array.from(s).join(","));
+}
+function togglePin(unit) {
+  const pins = getPinnedSet();
+  if (pins.has(unit)) pins.delete(unit); else pins.add(unit);
+  savePinnedSet(pins);
+  scheduleRenderBots();
+}
+function isPinned(unit) { return getPinnedSet().has(unit); }
+
 const state = {
   data: null,
   selectedUnit: null,
   visibleUnits: [],
   auto: true,
   autoTimer: null,
+  autoInterval: 30000,
   refreshController: null,
   refreshing: false,
   renderScheduled: false,
@@ -272,6 +291,15 @@ const I18N = {
     toast_action_ok: "Action completed successfully",
     toast_auth_ok: "Auth synced and bot restarted",
     toast_clipboard_failed: "Clipboard unavailable",
+    pin: "Pin",
+    unpin: "Unpin",
+    uptime: "Uptime",
+    shortcuts_title: "Keyboard Shortcuts",
+    shortcut_esc: "Close panel / modal",
+    shortcut_arrows: "Navigate between bots",
+    shortcut_question: "Show this help",
+    shortcut_r: "Refresh data",
+    shortcut_slash: "Focus search",
   },
   ru: {
     app_title: "Командный Центр Ботов",
@@ -428,6 +456,15 @@ const I18N = {
     toast_action_ok: "Действие выполнено",
     toast_auth_ok: "Auth синхронизирован, бот перезапущен",
     toast_clipboard_failed: "Буфер обмена недоступен",
+    pin: "Закрепить",
+    unpin: "Открепить",
+    uptime: "Аптайм",
+    shortcuts_title: "Горячие клавиши",
+    shortcut_esc: "Закрыть панель / модальное окно",
+    shortcut_arrows: "Навигация между ботами",
+    shortcut_question: "Показать эту справку",
+    shortcut_r: "Обновить данные",
+    shortcut_slash: "Фокус на поиск",
   },
 };
 
@@ -457,8 +494,7 @@ function applyI18n() {
   const subtitleEl = $("subtitle");
   if (subtitleEl) subtitleEl.textContent = t("subtitle");
 
-  const autoBtn = $("autoBtn");
-  if (autoBtn) autoBtn.title = t("auto_title");
+  // auto-refresh title is now handled by the select element
 
   const closeBtn = $("closeDetailBtn");
   if (closeBtn && !state.details.closeUi.closing) {
@@ -552,12 +588,18 @@ function updateClock() {
 }
 
 // Toast notifications
+const TOAST_ICONS = {
+  success: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>',
+  error: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+  info: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+};
 function showToast(message, type = "info") {
   const container = $("toastContainer");
   if (!container) return;
   const toast = document.createElement("div");
   toast.className = `toast ${type}`;
-  toast.textContent = message;
+  const icon = TOAST_ICONS[type] || TOAST_ICONS.info;
+  toast.innerHTML = `<span class="toast-icon">${icon}</span><span class="toast-msg">${escapeHtml(message)}</span>`;
   container.appendChild(toast);
   setTimeout(() => {
     toast.style.opacity = "0";
@@ -684,9 +726,17 @@ function createBotCard(unit) {
   root.className = "bot-card";
   root.dataset.unit = unit;
   root.innerHTML = `
+    <div class="card-accent"></div>
     <div class="bot-header">
       <div>
-        <div class="bot-name"></div>
+        <div class="bot-name-row">
+          <div class="bot-name"></div>
+          <button class="pin-btn" title="Pin" aria-label="Pin">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+          </button>
+        </div>
         <div class="bot-meta"></div>
         <div class="bot-issue" hidden></div>
       </div>
@@ -695,7 +745,7 @@ function createBotCard(unit) {
         <span class="status-text"></span>
       </div>
     </div>
-    <div class="bot-stats">
+    <div class="bot-stats bot-stats-grid">
       <div class="bot-stat">
         <div class="bot-stat-value" data-field="tokens">-</div>
         <div class="bot-stat-label">Tokens</div>
@@ -703,6 +753,10 @@ function createBotCard(unit) {
       <div class="bot-stat">
         <div class="bot-stat-value" data-field="cost">-</div>
         <div class="bot-stat-label">Cost</div>
+      </div>
+      <div class="bot-stat">
+        <div class="bot-stat-value" data-field="uptime">-</div>
+        <div class="bot-stat-label">Uptime</div>
       </div>
       <div class="bot-stat">
         <div class="bot-stat-value" data-field="activity">-</div>
@@ -718,13 +772,16 @@ function createBotCard(unit) {
   `;
 
   const els = {
+    accent: root.querySelector(".card-accent"),
     name: root.querySelector(".bot-name"),
+    pinBtn: root.querySelector(".pin-btn"),
     meta: root.querySelector(".bot-meta"),
     issue: root.querySelector(".bot-issue"),
     statusWrap: root.querySelector(".bot-status"),
     statusText: root.querySelector(".bot-status .status-text"),
     tokens: root.querySelector('[data-field="tokens"]'),
     cost: root.querySelector('[data-field="cost"]'),
+    uptime: root.querySelector('[data-field="uptime"]'),
     activity: root.querySelector('[data-field="activity"]'),
     stopBtn: root.querySelector('button[data-action="stop"]'),
     restartBtn: root.querySelector('button[data-action="restart"]'),
@@ -737,10 +794,22 @@ function createBotCard(unit) {
     const isSelected = state.selectedUnit === bot.unit;
     root.classList.toggle("selected", Boolean(isSelected));
 
-    // Status class
+    // Pin state
+    const pinned = isPinned(bot.unit);
+    root.classList.toggle("pinned", pinned);
+    if (els.pinBtn) {
+      els.pinBtn.classList.toggle("active", pinned);
+      els.pinBtn.title = pinned ? t("unpin") : t("pin");
+    }
+
+    // Status class + accent bar
     const status = getStatusInfo(bot);
     root.classList.remove("status-online", "status-offline", "status-warning");
     root.classList.add(`status-${status.class}`);
+    if (els.accent) {
+      els.accent.classList.remove("accent-online", "accent-offline", "accent-warning");
+      els.accent.classList.add(`accent-${status.class}`);
+    }
     if (els.statusWrap) {
       els.statusWrap.classList.remove("online", "offline", "warning");
       els.statusWrap.classList.add(status.class);
@@ -767,10 +836,11 @@ function createBotCard(unit) {
       setText(els.issue, msg);
     }
 
-    // Stats
+    // Stats (4-stat grid: tokens, cost, uptime, activity)
     const usage24 = getUsageWindow(bot, "24h") || {};
     setText(els.tokens, fmtInt(usage24.tokens));
     setText(els.cost, fmtMoneyUsd(usage24.costUSD));
+    setText(els.uptime, fmtSeconds(bot.systemd && bot.systemd.uptimeSeconds));
     const lastAct = bot.usage ? bot.usage.lastActivityAt : null;
     setText(els.activity, relativeTime(lastAct) || "-");
 
@@ -802,20 +872,35 @@ function renderHeader(data) {
   $("tzLabel").textContent = t("timezone_prefix") + (data.timezone || "-");
 }
 
+function setStatValue(el, newText) {
+  if (!el) return;
+  const old = el.textContent;
+  el.classList.remove("skeleton-loading");
+  if (old === newText) return;
+  el.textContent = newText;
+  // Flash animation on value change (skip first render with "-")
+  if (old && old !== "-") {
+    el.classList.remove("value-changed");
+    void el.offsetWidth; // force reflow
+    el.classList.add("value-changed");
+  }
+}
+
 function renderSummary(data) {
   const s = data.totals || {};
-  $("statBots").textContent = fmtInt(s.botsActive);
+  setStatValue($("statBots"), fmtInt(s.botsActive));
   $("statBotsSub").textContent = t("summary_bots_sub", { total: fmtInt(s.botsTotal) });
-  $("statTokens").textContent = fmtInt(s.tokens24h);
+  setStatValue($("statTokens"), fmtInt(s.tokens24h));
   $("statTokensSub").textContent = t("summary_tokens_sub", { requests: fmtInt(s.requests24h) });
-  $("statCost").textContent = fmtMoneyUsd(s.cost24h);
-  $("statErrors").textContent = fmtInt(s.errors24h);
+  setStatValue($("statCost"), fmtMoneyUsd(s.cost24h));
+  setStatValue($("statErrors"), fmtInt(s.errors24h));
 }
 
 function renderBots(data) {
   const grid = $("botsGrid");
   const emptyState = $("emptyState");
   const bots = Array.isArray(data.bots) ? data.bots : [];
+  const orderIndex = new Map(bots.map((bot, idx) => [bot.unit, idx]));
 
   const filtered = bots.filter((bot) => {
     if (!botMatchesFilter(bot, state.ui.filter)) return false;
@@ -825,7 +910,13 @@ function renderBots(data) {
   });
 
   const sortMode = state.ui.sort || "name";
+  const pins = getPinnedSet();
   filtered.sort((A, B) => {
+    // Pinned bots always come first
+    const pa = pins.has(A.unit) ? 1 : 0;
+    const pb = pins.has(B.unit) ? 1 : 0;
+    if (pa !== pb) return pb - pa;
+
     const ua = getUsageWindow(A, "24h") || {};
     const ub = getUsageWindow(B, "24h") || {};
     if (sortMode === "tokens24h_desc") return (ub.tokens || 0) - (ua.tokens || 0);
@@ -833,9 +924,8 @@ function renderBots(data) {
     if (sortMode === "errors24h_desc") return (ub.errors || 0) - (ua.errors || 0);
     if (sortMode === "uptime_desc") return (B.systemd.uptimeSeconds || 0) - (A.systemd.uptimeSeconds || 0);
     if (sortMode === "last_activity_desc") return getBotLastActivityMs(B) - getBotLastActivityMs(A);
-    const an = String(A.displayName || A.unit || "").toLowerCase();
-    const bn = String(B.displayName || B.unit || "").toLowerCase();
-    return an < bn ? -1 : an > bn ? 1 : 0;
+    // "name" mode preserves server/config order from /api/bots.
+    return (orderIndex.get(A.unit) ?? 0) - (orderIndex.get(B.unit) ?? 0);
   });
 
   state.visibleUnits = filtered.map((b) => b.unit);
@@ -1702,6 +1792,85 @@ async function loadLogsForSelected() {
   }
 }
 
+// Keyboard shortcuts panel
+function toggleShortcutsPanel() {
+  const panel = $("shortcutsPanel");
+  if (!panel) return;
+  const isHidden = panel.hidden;
+  panel.hidden = !isHidden;
+  if (!isHidden) return;
+
+  // Populate content
+  const shortcuts = [
+    ["?", t("shortcut_question")],
+    ["Esc", t("shortcut_esc")],
+    ["\u2190 \u2192", t("shortcut_arrows")],
+    ["R", t("shortcut_r")],
+    ["/", t("shortcut_slash")],
+  ];
+  const title = panel.querySelector(".shortcuts-title");
+  if (title) title.textContent = t("shortcuts_title");
+  const list = panel.querySelector(".shortcuts-list");
+  if (list) {
+    list.innerHTML = shortcuts.map(([key, desc]) =>
+      `<div class="shortcut-row"><kbd>${escapeHtml(key)}</kbd><span>${escapeHtml(desc)}</span></div>`
+    ).join("");
+  }
+
+  // Close on Esc or backdrop click (bind once)
+  if (!panel._bound) {
+    panel._bound = true;
+    panel.addEventListener("click", (e) => {
+      if (e.target === panel) panel.hidden = true;
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !panel.hidden) {
+        e.stopPropagation();
+        panel.hidden = true;
+      }
+    });
+  }
+}
+
+// Refresh countdown
+let _lastRefreshAt = 0;
+let _countdownTimer = null;
+function startRefreshCountdown() {
+  _lastRefreshAt = Date.now();
+  updateCountdown();
+  if (_countdownTimer) clearInterval(_countdownTimer);
+  _countdownTimer = setInterval(updateCountdown, 1000);
+}
+function updateCountdown() {
+  const el = $("relativeTime");
+  if (!el) return;
+  if (!_lastRefreshAt) { el.textContent = ""; return; }
+  const ago = Math.floor((Date.now() - _lastRefreshAt) / 1000);
+  if (ago < 2) el.textContent = t("just_now");
+  else if (ago < 60) el.textContent = `${ago}s ago`;
+  else el.textContent = `${Math.floor(ago / 60)}m ago`;
+
+  // Show next auto-refresh info
+  if (state.auto && state.autoInterval > 0) {
+    const nextIn = Math.max(0, Math.ceil(state.autoInterval / 1000 - ago));
+    const nextEl = $("nextRefresh");
+    if (nextEl) nextEl.textContent = nextIn > 0 ? `next in ${nextIn}s` : "refreshing...";
+  } else {
+    const nextEl = $("nextRefresh");
+    if (nextEl) nextEl.textContent = "";
+  }
+}
+
+// Compact view
+function setCompactView(on) {
+  state.ui.compact = Boolean(on);
+  lsSet("compact", on ? "1" : "0");
+  const grid = $("botsGrid");
+  if (grid) grid.classList.toggle("compact", on);
+  const btn = $("compactBtn");
+  if (btn) btn.classList.toggle("active", on);
+}
+
 // Main
 async function refresh() {
   if (state.refreshController) {
@@ -1730,6 +1899,7 @@ async function refresh() {
     syncDetailsFromUrl();
 
     setConnectionStatus("live");
+    startRefreshCountdown();
   } catch (e) {
     if (e && e.name === "AbortError") return;
     setConnectionStatus("error");
@@ -1749,26 +1919,33 @@ async function autoTick() {
   if (!state.auto) return;
   if (document.hidden) {
     stopAuto();
-    state.autoTimer = setTimeout(autoTick, 30000);
+    state.autoTimer = setTimeout(autoTick, state.autoInterval || 30000);
     return;
   }
   try { await refresh(); } finally {
     stopAuto();
-    state.autoTimer = setTimeout(autoTick, 30000);
+    state.autoTimer = setTimeout(autoTick, state.autoInterval || 30000);
   }
 }
 
-function setAuto(on) {
+const AUTO_INTERVALS = [
+  { value: 0, label: "Off" },
+  { value: 15000, label: "15s" },
+  { value: 30000, label: "30s" },
+  { value: 60000, label: "1m" },
+  { value: 120000, label: "2m" },
+];
+
+function setAuto(on, interval) {
   state.auto = Boolean(on);
-  const btn = $("autoBtn");
-  if (btn) {
-    btn.textContent = t(state.auto ? "auto_on" : "auto_off");
-    btn.classList.toggle("off", !state.auto);
-    btn.classList.toggle("btn-toggle", state.auto);
-  }
+  state.autoInterval = interval || 30000;
+  // Update interval selector
+  const sel = $("autoIntervalSelect");
+  if (sel) sel.value = state.auto ? String(state.autoInterval) : "0";
   lsSet("auto", state.auto ? "1" : "0");
+  lsSet("autoInterval", String(state.autoInterval));
   stopAuto();
-  if (state.auto) state.autoTimer = setTimeout(autoTick, 30000);
+  if (state.auto) state.autoTimer = setTimeout(autoTick, state.autoInterval);
 }
 
 // Init
@@ -1788,10 +1965,35 @@ window.addEventListener("DOMContentLoaded", () => {
 
   // Controls
   $("refreshBtn").addEventListener("click", refresh);
-  $("autoBtn").addEventListener("click", () => setAuto(!state.auto));
+
+  // Auto-refresh interval selector
+  const autoIntervalSel = $("autoIntervalSelect");
+  if (autoIntervalSel) {
+    autoIntervalSel.addEventListener("change", () => {
+      const val = parseInt(autoIntervalSel.value, 10);
+      if (val === 0) setAuto(false, 0);
+      else setAuto(true, val);
+    });
+  }
+
+  // Compact view toggle
+  const compactBtn = $("compactBtn");
+  if (compactBtn) {
+    compactBtn.addEventListener("click", () => setCompactView(!state.ui.compact));
+  }
 
   // Event delegation for bot grid (no per-card listeners)
   $("botsGrid").addEventListener("click", (e) => {
+    // Pin button
+    const pinBtn = e.target.closest && e.target.closest(".pin-btn");
+    if (pinBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const card = pinBtn.closest(".bot-card");
+      if (card && card.dataset.unit) togglePin(card.dataset.unit);
+      return;
+    }
+
     const btn = e.target.closest && e.target.closest(".action-btn");
     const card = e.target.closest && e.target.closest(".bot-card");
     if (!card) return;
@@ -1809,6 +2011,48 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     openDetails(unit);
+  });
+
+  // Stat card click-to-filter
+  const statFilterMap = { 0: "active", 3: "issues" }; // index 0=Active Bots, 3=Errors
+  document.querySelectorAll(".stat-card").forEach((card, idx) => {
+    if (idx in statFilterMap) {
+      card.style.cursor = "pointer";
+      card.addEventListener("click", () => {
+        const target = statFilterMap[idx];
+        const showSel = $("showSelect");
+        if (showSel.value === target) {
+          showSel.value = "all";
+          state.ui.show = "all";
+        } else {
+          showSel.value = target;
+          state.ui.show = target;
+        }
+        lsSet("show", state.ui.show);
+        scheduleRenderBots();
+      });
+    }
+  });
+
+  // Keyboard shortcuts (global)
+  document.addEventListener("keydown", (e) => {
+    // Ignore if inside input/select
+    if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA") return;
+    if (!$("confirmModal").hidden) return;
+    if (!$("detailPanel").hidden) return;
+
+    if (e.key === "?" || e.key === "/") {
+      e.preventDefault();
+      if (e.key === "/") {
+        $("filterInput").focus();
+      } else {
+        toggleShortcutsPanel();
+      }
+    }
+    if (e.key === "r" || e.key === "R") {
+      e.preventDefault();
+      refresh();
+    }
   });
 
   // Language
@@ -1866,9 +2110,14 @@ window.addEventListener("DOMContentLoaded", () => {
     if (!document.hidden && state.auto && !state.refreshing) refresh();
   });
 
+  // Compact view
+  state.ui.compact = lsGet("compact", "0") === "1";
+  setCompactView(state.ui.compact);
+
   // Auto
   const autoStored = lsGet("auto", "1");
-  setAuto(autoStored !== "0");
+  const autoIntervalStored = parseInt(lsGet("autoInterval", "30000"), 10) || 30000;
+  setAuto(autoStored !== "0", autoIntervalStored);
 
   // Initial load
   refresh();

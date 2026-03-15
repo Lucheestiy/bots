@@ -6,6 +6,12 @@ const state = {
   visibleUnits: [],
   auto: true,
   timer: null,
+  batch: new Set(),
+  pinned: new Set(JSON.parse(lsGet("pinned", "[]") || "[]")),
+  viewCompact: lsGet("viewCompact", "0") === "1",
+  connOnline: true,
+  countdownTimer: null,
+  countdownStart: 0,
   ui: {
     filter: "",
     show: "all",
@@ -29,6 +35,8 @@ const state = {
     unitDetailsLoading: false,
     unitDetailsError: "",
     autoLoadLogs: lsGet("autoLoadLogs", "0") === "1",
+    followLogs: false,
+    followTimer: null,
   },
 };
 
@@ -195,7 +203,7 @@ const I18N = {
     lines_400: "400 lines",
     log_search_placeholder: "Search logs…",
     log_search_aria: "Search logs",
-    footer_tip: "Tip: use Stop/Start to “docker-like” power-cycle a bot.",
+    footer_tip: "Tip: use Stop/Start to \u201cdocker-like\u201d power-cycle a bot.",
     confirm_title: "Confirm action",
     cancel: "Cancel",
     confirm: "Confirm",
@@ -221,10 +229,10 @@ const I18N = {
     action_disable: "Disable",
     action_details: "Details",
     confirm_msg: "Confirm: {action} {unit}",
-    confirm_tip: "Tip: if a service is stuck in “activating (auto-restart)”, use Stop to break the loop.",
+    confirm_tip: "Tip: if a service is stuck in \u201cactivating (auto-restart)\u201d, use Stop to break the loop.",
     action_failed: "{pretty} failed: {error}",
     loading: "Loading…",
-    logs_hint: "Click “Load logs”.",
+    logs_hint: "Click \u201cLoad logs\u201d.",
     logs_failed: "Failed to load logs: {error}",
     logs_no_matches: "No matches.",
     unit_details_failed: "Failed to load unit details: {error}",
@@ -266,6 +274,31 @@ const I18N = {
     sync_claude_auth: "Sync Claude auth",
     sync_claude_auth_confirm: "Sync Claude auth and restart {unit}?",
     sync_claude_auth_failed: "Claude auth sync failed: {error}",
+    toast_action_ok: "{action} {unit} — done",
+    toast_action_fail: "{action} {unit} — failed",
+    shortcuts_title: "Keyboard shortcuts",
+    sc_open_details: "Open details / navigate",
+    sc_close: "Close modal",
+    sc_prev_next: "Previous / Next bot",
+    sc_refresh: "Refresh data",
+    sc_filter: "Focus filter",
+    sc_shortcuts: "Show this help",
+    sc_select_all: "Select / deselect all",
+    batch_selected: "{n} selected",
+    batch_start_all: "Start all",
+    batch_stop_all: "Stop all",
+    batch_restart_all: "Restart all",
+    batch_confirm: "{action} {n} bots?",
+    export_csv: "Export CSV",
+    pin: "Pin",
+    unpin: "Unpin",
+    view_compact: "Compact",
+    view_comfortable: "Comfortable",
+    follow_logs: "Follow",
+    follow_logs_title: "Auto-refresh logs every 5s",
+    conn_online: "Connected",
+    conn_offline: "Disconnected",
+    legend_errors_day: "Errors/day",
   },
   ru: {
     app_title: "Панель ботов",
@@ -409,6 +442,31 @@ const I18N = {
     sync_claude_auth: "Синхр. Claude auth",
     sync_claude_auth_confirm: "Синхронизировать Claude auth и перезапустить {unit}?",
     sync_claude_auth_failed: "Ошибка синхронизации Claude auth: {error}",
+    toast_action_ok: "{action} {unit} — готово",
+    toast_action_fail: "{action} {unit} — ошибка",
+    shortcuts_title: "Горячие клавиши",
+    sc_open_details: "Открыть детали / навигация",
+    sc_close: "Закрыть окно",
+    sc_prev_next: "Предыдущий / Следующий бот",
+    sc_refresh: "Обновить данные",
+    sc_filter: "Фокус на фильтр",
+    sc_shortcuts: "Показать подсказки",
+    sc_select_all: "Выбрать / снять все",
+    batch_selected: "{n} выбрано",
+    batch_start_all: "Запустить все",
+    batch_stop_all: "Остановить все",
+    batch_restart_all: "Перезапустить все",
+    batch_confirm: "{action} {n} ботов?",
+    export_csv: "Экспорт CSV",
+    pin: "Закрепить",
+    unpin: "Открепить",
+    view_compact: "Компактный",
+    view_comfortable: "Обычный",
+    follow_logs: "Следить",
+    follow_logs_title: "Обновлять логи каждые 5с",
+    conn_online: "Подключено",
+    conn_offline: "Отключено",
+    legend_errors_day: "Ошибки/день",
   },
 };
 
@@ -737,11 +795,25 @@ function renderSummary(data) {
   const div = $("summary");
   div.innerHTML = "";
 
+  // Aggregate daily data across all bots for sparklines
+  const dailyAgg = {};
+  for (const bot of (data.bots || [])) {
+    const daily = bot.usage && bot.usage.daily30d ? bot.usage.daily30d : [];
+    for (const d of daily) {
+      if (!d.date) continue;
+      if (!dailyAgg[d.date]) dailyAgg[d.date] = { tokens: 0, costUSD: 0, errors: 0 };
+      dailyAgg[d.date].tokens += (d.tokens || 0);
+      dailyAgg[d.date].costUSD += (d.costUSD || 0);
+      dailyAgg[d.date].errors += (d.errors || 0);
+    }
+  }
+  const dailyAll = Object.entries(dailyAgg).sort((a, b) => a[0].localeCompare(b[0])).map(([, v]) => v);
+
   const cards = [
-    { label: t("summary_bots"), value: fmtInt(s.botsTotal), sub: t("summary_bots_sub", { active: fmtInt(s.botsActive) }) },
-    { label: t("summary_tokens24h"), value: fmtInt(s.tokens24h), sub: t("summary_tokens_sub", { requests: fmtInt(s.requests24h) }) },
-    { label: t("summary_cost24h"), value: fmtMoneyUsd(s.cost24h), sub: t("summary_cost_sub") },
-    { label: t("summary_errors24h"), value: fmtInt(s.errors24h), sub: t("summary_errors_sub") },
+    { label: t("summary_bots"), value: fmtInt(s.botsTotal), sub: t("summary_bots_sub", { active: fmtInt(s.botsActive) }), spark: "" },
+    { label: t("summary_tokens24h"), value: fmtInt(s.tokens24h), sub: t("summary_tokens_sub", { requests: fmtInt(s.requests24h) }), spark: renderPillSparkline(dailyAll, "tokens", "rgba(94,234,212,.5)") },
+    { label: t("summary_cost24h"), value: fmtMoneyUsd(s.cost24h), sub: t("summary_cost_sub"), spark: renderPillSparkline(dailyAll, "costUSD", "rgba(96,165,250,.5)") },
+    { label: t("summary_errors24h"), value: fmtInt(s.errors24h), sub: t("summary_errors_sub"), spark: renderPillSparkline(dailyAll, "errors", "rgba(251,113,133,.5)") },
   ];
 
   for (const c of cards) {
@@ -751,6 +823,7 @@ function renderSummary(data) {
       <div class="pillLabel">${c.label}</div>
       <div class="pillValue">${c.value}</div>
       <div class="pillSub">${c.sub || ""}</div>
+      ${c.spark || ""}
     `;
     div.appendChild(el);
   }
@@ -849,12 +922,15 @@ async function doAction(unit, action) {
   setError("");
   try {
     await apiPost(`/api/units/${encodeURIComponent(unit)}/${encodeURIComponent(action)}`);
+    showToast(t("toast_action_ok", { action: actionLabel(action), unit }), "", { type: "good", duration: 3000 });
     await refresh();
     if (state.selectedUnit === unit) {
       openDetails(unit);
     }
   } catch (e) {
-    setError(t("action_failed", { pretty, error: String(e && (e.message || e) || "") }));
+    const errMsg = String(e && (e.message || e) || "");
+    showToast(t("toast_action_fail", { action: actionLabel(action), unit }), errMsg, { type: "bad", duration: 6000 });
+    setError(t("action_failed", { pretty, error: errMsg }));
   }
 }
 
@@ -869,12 +945,15 @@ async function syncClaudeAuthAndRestart(unit) {
   try {
     await apiPost("/api/claude/sync");
     await apiPost(`/api/units/${encodeURIComponent(unit)}/restart`);
+    showToast(t("sync_claude_auth"), t("toast_action_ok", { action: t("action_restart"), unit }), { type: "good" });
     await refresh();
     if (state.selectedUnit === unit) {
       openDetails(unit);
     }
   } catch (e) {
-    setError(t("sync_claude_auth_failed", { error: String(e && (e.message || e) || "") }));
+    const errMsg = String(e && (e.message || e) || "");
+    showToast(t("sync_claude_auth"), errMsg, { type: "bad", duration: 6000 });
+    setError(t("sync_claude_auth_failed", { error: errMsg }));
   }
 }
 
@@ -904,14 +983,15 @@ function renderBotsTable(data) {
     if (sortMode === "errors24h_desc") return (Number(ub.errors) || 0) - (Number(ua.errors) || 0);
     if (sortMode === "uptime_desc") return (Number(B.systemd && B.systemd.uptimeSeconds) || 0) - (Number(A.systemd && A.systemd.uptimeSeconds) || 0);
     if (sortMode === "last_activity_desc") return getBotLastActivityMs(B) - getBotLastActivityMs(A);
-    const an = String(A.displayName || A.unit || "").toLowerCase();
-    const bn = String(B.displayName || B.unit || "").toLowerCase();
-    if (an < bn) return -1;
-    if (an > bn) return 1;
-    return 0;
+    // "name" mode preserves server/config order from /api/bots.
+    return a.idx - b.idx;
   };
 
   filtered.sort((a, b) => {
+    // Pinned bots always come first
+    const pa = isPinned(a.bot.unit) ? 0 : 1;
+    const pb = isPinned(b.bot.unit) ? 0 : 1;
+    if (pa !== pb) return pa - pb;
     const d = cmp(a, b);
     return d !== 0 ? d : a.idx - b.idx;
   });
@@ -936,6 +1016,7 @@ function renderBotsTable(data) {
 
     const usage24 = getUsageWindow(bot, "24h") || {};
     const lastAct = bot.usage ? bot.usage.lastActivityAt : null;
+    const daily7 = (bot.usage && bot.usage.daily30d) ? bot.usage.daily30d.slice(-7) : [];
 
     const issues = getHealthIssues(bot);
     const primaryIssue = pickPrimaryIssue(issues);
@@ -949,15 +1030,21 @@ function renderBotsTable(data) {
       : "";
 
     const nameParts = [];
-    nameParts.push(`<div class="providerName">${escapeHtml(bot.displayName || bot.unit)}</div>`);
-    const meta = [];
-    if (bot.telegramHandle) meta.push(bot.telegramHandle);
-    if (bot.type) meta.push(bot.type);
-    if (bot.profile) meta.push(`${t("meta_profile")}:${bot.profile}`);
-    if (bot.scope === "user") meta.push(bot.user ? `${t("meta_user")}:${bot.user}` : t("scope_user"));
-    if (bot.gatewayPort) meta.push(`${t("meta_port")}:${bot.gatewayPort}`);
-    meta.push(`${t("meta_unit")}:${bot.unit}`);
-    if (meta.length) nameParts.push(`<div class="providerMeta">${escapeHtml(meta.join(" • "))}</div>`);
+    const pinStar = isPinned(bot.unit) ? "\u2605" : "\u2606";
+    const pinCls = isPinned(bot.unit) ? "pinBtn pinned" : "pinBtn";
+    const filterQ = String(state.ui.filter || "").trim();
+    const displayName = highlightFilterMatch(bot.displayName || bot.unit, filterQ);
+    nameParts.push(`<div class="providerName"><button class="${pinCls}" data-pin-unit="${escapeHtml(bot.unit)}" title="${isPinned(bot.unit) ? t("unpin") : t("pin")}">${pinStar}</button>${displayName}${typeBadgeHtml(bot.type)}</div>`);
+    const metaParts = [];
+    if (bot.telegramHandle) metaParts.push(telegramLinkHtml(bot.telegramHandle));
+    const metaText = [];
+    if (bot.type) metaText.push(bot.type);
+    if (bot.profile) metaText.push(`${t("meta_profile")}:${bot.profile}`);
+    if (bot.scope === "user") metaText.push(bot.user ? `${t("meta_user")}:${bot.user}` : t("scope_user"));
+    if (bot.gatewayPort) metaText.push(`${t("meta_port")}:${bot.gatewayPort}`);
+    metaText.push(`${t("meta_unit")}:${bot.unit}`);
+    if (metaText.length) metaParts.push(escapeHtml(metaText.join(" \u2022 ")));
+    if (metaParts.length) nameParts.push(`<div class="providerMeta">${metaParts.join(" \u2022 ")}</div>`);
 
     const actionsTd = document.createElement("td");
     const actionsDiv = document.createElement("div");
@@ -986,25 +1073,57 @@ function renderBotsTable(data) {
     else if (worstHealthSeverity(issues) >= 2) tr.classList.add("rowBad");
     else if (errors24 > 0 || restarts > 0 || bot.systemd.subState !== "running" || worstHealthSeverity(issues) >= 1) tr.classList.add("rowWarn");
 
+    // Recent activity glow (active in last 5 minutes)
+    const lastActMs = getBotLastActivityMs(bot);
+    if (lastActMs > 0 && (Date.now() - lastActMs) < 5 * 60 * 1000) {
+      tr.classList.add("rowRecentActivity");
+    }
+    if (isPinned(bot.unit)) tr.classList.add("rowPinned");
+
+    const isChecked = state.batch.has(bot.unit);
     tr.innerHTML = `
+      <td style="width:32px;padding-right:0;vertical-align:middle"><input type="checkbox" class="rowCheckbox" data-unit="${escapeHtml(bot.unit)}" ${isChecked ? "checked" : ""} /></td>
       <td>${nameParts.join("")}</td>
       <td><span class="statusDot ${dotClass}"></span>${escapeHtml(statusLabel)}${issueHtml}</td>
       <td>${escapeHtml(unitFileStateLabel(bot.systemd.unitFileState) || "-")}</td>
-      <td>${fmtSeconds(bot.systemd.uptimeSeconds)}</td>
+      <td>${renderUptimeBar(bot.systemd.uptimeSeconds)}</td>
       <td title="${escapeHtml(lastAct || "")}">${escapeHtml(relativeTime(lastAct) || "-")}</td>
-      <td class="num">${fmtInt(usage24.tokens)}</td>
+      <td class="num">${fmtInt(usage24.tokens)}${renderSparkline(daily7)}</td>
       <td class="num">${fmtMoneyUsd(usage24.costUSD)}</td>
       <td class="num">${fmtInt(usage24.errors)}</td>
     `;
     tr.appendChild(actionsTd);
     tbody.appendChild(tr);
 
+    // Checkbox handler
+    const cb = tr.querySelector(".rowCheckbox[data-unit]");
+    if (cb) {
+      cb.addEventListener("change", (e) => {
+        e.stopPropagation();
+        toggleBatchUnit(bot.unit);
+      });
+      cb.addEventListener("click", (e) => e.stopPropagation());
+    }
+
+    // Pin button handler
+    const pinBtn = tr.querySelector("[data-pin-unit]");
+    if (pinBtn) {
+      pinBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        togglePin(bot.unit);
+      });
+    }
+
     tr.addEventListener("click", (e) => {
       const target = e.target;
       if (target && target.closest && target.closest("button")) return;
+      if (target && (target.classList.contains("rowCheckbox") || target.closest(".rowCheckbox"))) return;
       toggleDetails(bot.unit);
     });
   }
+
+  updateBatchBar();
+  updateSelectAllCheckbox();
 }
 
 function escapeHtml(s) {
@@ -1145,14 +1264,17 @@ function renderUsageCharts(bot) {
   let labels = null;
   let tokens = [0];
   let cost = [0];
+  let errors = [0];
   if (daily.length) {
     labels = daily.map(d => d.date || "");
     tokens = daily.map(d => d.tokens || 0);
     cost = daily.map(d => d.costUSD || 0);
+    errors = daily.map(d => d.errors || 0);
   }
 
   drawBars($("tokensChart"), tokens, "#5eead4", { labels, title: t("legend_tokens_day"), format: (v) => fmtInt(v) });
   drawBars($("costChart"), cost, "#60a5fa", { labels, title: t("legend_cost_day"), format: (v) => fmtMoneyUsd(v) });
+  drawBars($("errorsChart"), errors, "#fb7185", { labels, title: t("legend_errors_day"), format: (v) => fmtInt(v) });
 }
 
 function renderSystemdBox(bot) {
@@ -1485,6 +1607,406 @@ async function copyToClipboard(text) {
   ta.remove();
 }
 
+/* ── Toast notification system ── */
+function showToast(title, msg, { type = "info", duration = 4000 } = {}) {
+  const container = $("toastContainer");
+  if (!container) return;
+
+  const icons = { good: "\u2705", bad: "\u274C", warn: "\u26A0\uFE0F", info: "\u2139\uFE0F" };
+  const el = document.createElement("div");
+  el.className = `toast toast${type.charAt(0).toUpperCase() + type.slice(1)}`;
+  el.innerHTML = `
+    <span class="toastIcon">${icons[type] || icons.info}</span>
+    <div class="toastBody">
+      <div class="toastTitle">${escapeHtml(title)}</div>
+      ${msg ? `<div class="toastMsg">${escapeHtml(msg)}</div>` : ""}
+    </div>
+    <button class="toastClose">&times;</button>
+  `;
+  container.appendChild(el);
+
+  const remove = () => {
+    if (el._removed) return;
+    el._removed = true;
+    el.classList.add("toastLeaving");
+    el.addEventListener("animationend", () => el.remove());
+  };
+  el.querySelector(".toastClose").addEventListener("click", remove);
+  if (duration > 0) setTimeout(remove, duration);
+}
+
+/* ── Sparkline renderer ── */
+function renderSparkline(daily7) {
+  if (!daily7 || !daily7.length) return "";
+  const vals = daily7.map(d => d.tokens || 0);
+  const max = Math.max(1, ...vals);
+  const bars = vals.map(v => {
+    const h = Math.max(1, Math.round((v / max) * 18));
+    return `<span class="sparklineBar" style="height:${h}px" title="${fmtInt(v)}"></span>`;
+  });
+  return `<span class="sparklineWrap">${bars.join("")}</span>`;
+}
+
+/* ── Pin/favorite bots ── */
+function savePinned() {
+  lsSet("pinned", JSON.stringify(Array.from(state.pinned)));
+}
+
+function togglePin(unit) {
+  if (state.pinned.has(unit)) state.pinned.delete(unit);
+  else state.pinned.add(unit);
+  savePinned();
+  if (state.data) renderBotsTable(state.data);
+}
+
+function isPinned(unit) {
+  return state.pinned.has(unit);
+}
+
+/* ── View toggle (compact/comfortable) ── */
+function setViewCompact(compact) {
+  state.viewCompact = compact;
+  lsSet("viewCompact", compact ? "1" : "0");
+  document.body.classList.toggle("viewCompact", compact);
+  const btn = $("viewToggleBtn");
+  if (btn) {
+    btn.textContent = compact ? t("view_comfortable") : t("view_compact");
+    btn.classList.toggle("active", compact);
+  }
+}
+
+/* ── Connection status ── */
+function setConnStatus(online) {
+  state.connOnline = online;
+  const dot = $("connDot");
+  if (dot) {
+    dot.className = `connDot ${online ? "online" : "offline"}`;
+    dot.title = online ? t("conn_online") : t("conn_offline");
+  }
+}
+
+/* ── Auto-refresh countdown ── */
+const REFRESH_INTERVAL = 30000;
+const COUNTDOWN_CIRCUMFERENCE = 56.55; // 2 * PI * 9
+
+function startCountdown() {
+  stopCountdown();
+  state.countdownStart = Date.now();
+  const circle = $("countdownCircle");
+  const ring = $("countdownRing");
+  if (ring) ring.style.display = state.auto ? "" : "none";
+  if (!circle) return;
+
+  state.countdownTimer = setInterval(() => {
+    const elapsed = Date.now() - state.countdownStart;
+    const progress = Math.min(1, elapsed / REFRESH_INTERVAL);
+    const offset = COUNTDOWN_CIRCUMFERENCE * (1 - progress);
+    circle.style.strokeDashoffset = String(offset);
+  }, 200);
+}
+
+function stopCountdown() {
+  if (state.countdownTimer) {
+    clearInterval(state.countdownTimer);
+    state.countdownTimer = null;
+  }
+  const circle = $("countdownCircle");
+  if (circle) circle.style.strokeDashoffset = "0";
+}
+
+/* ── Log follow mode ── */
+function setFollowLogs(active) {
+  state.details.followLogs = active;
+  const btn = $("followLogsBtn");
+  if (btn) btn.classList.toggle("active", active);
+
+  if (state.details.followTimer) {
+    clearInterval(state.details.followTimer);
+    state.details.followTimer = null;
+  }
+
+  if (active && state.details.logsUnit) {
+    // Load immediately, then every 5s
+    loadLogs(state.details.logsUnit);
+    state.details.followTimer = setInterval(() => {
+      if (state.details.logsUnit) loadLogs(state.details.logsUnit);
+    }, 5000);
+  }
+}
+
+/* ── Uptime bar renderer ── */
+function renderUptimeBar(uptimeSeconds) {
+  if (!Number.isFinite(uptimeSeconds) || uptimeSeconds <= 0) return fmtSeconds(uptimeSeconds);
+  // Map uptime to a percentage (7 days = 100%)
+  const maxSeconds = 7 * 86400;
+  const pct = Math.min(100, (uptimeSeconds / maxSeconds) * 100);
+  // Color: green for long, yellow for mid, red for short
+  let color = "var(--good)";
+  if (uptimeSeconds < 3600) color = "var(--bad)";
+  else if (uptimeSeconds < 86400) color = "var(--warn)";
+  return `<div class="uptimeBar"><span>${fmtSeconds(uptimeSeconds)}</span><span class="uptimeBarTrack"><span class="uptimeBarFill" style="width:${pct.toFixed(1)}%;background:${color}"></span></span></div>`;
+}
+
+/* ── Provider donut chart ── */
+const DONUT_COLORS = ["#5eead4", "#60a5fa", "#fb7185", "#c084fc", "#fbbf24", "#34d399", "#f472b6", "#a78bfa"];
+
+function drawDonut(canvas, slices) {
+  if (!canvas) return;
+  resizeCanvasToDisplaySize(canvas);
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  if (!slices || !slices.length) return;
+
+  const total = slices.reduce((s, v) => s + v.value, 0);
+  if (total <= 0) return;
+
+  const cx = w / 2;
+  const cy = h / 2;
+  const r = Math.min(cx, cy) - 4;
+  const innerR = r * 0.55;
+  let angle = -Math.PI / 2;
+
+  for (let i = 0; i < slices.length; i++) {
+    const slice = slices[i];
+    const sliceAngle = (slice.value / total) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, angle, angle + sliceAngle);
+    ctx.arc(cx, cy, innerR, angle + sliceAngle, angle, true);
+    ctx.closePath();
+    ctx.fillStyle = DONUT_COLORS[i % DONUT_COLORS.length];
+    ctx.fill();
+    angle += sliceAngle;
+  }
+
+  // Center text
+  ctx.fillStyle = "#f0f4f9";
+  ctx.font = `bold ${Math.round(r * 0.22)}px ui-sans-serif, system-ui, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(fmtInt(total), cx, cy - r * 0.08);
+  ctx.fillStyle = "#93b4d4";
+  ctx.font = `${Math.round(r * 0.14)}px ui-sans-serif, system-ui, sans-serif`;
+  ctx.fillText(t("tokens_word"), cx, cy + r * 0.15);
+}
+
+function renderProviderDonut(bot) {
+  const canvas = $("providerDonut");
+  if (!canvas) return;
+  const providers = bot.usage && bot.usage.byProvider ? bot.usage.byProvider : {};
+  const entries = Object.entries(providers).sort((a, b) => (b[1].tokens || 0) - (a[1].tokens || 0));
+  const slices = entries.map(([name, st]) => ({ label: name, value: st.tokens || 0 }));
+  drawDonut(canvas, slices);
+}
+
+/* ── Page title badge ── */
+function updatePageTitleBadge(data) {
+  if (!data || !data.bots) return;
+  const issueCount = data.bots.reduce((n, bot) => {
+    const issues = getHealthIssues(bot);
+    return n + issues.filter(i => String(i.severity || "").toLowerCase() === "error").length;
+  }, 0);
+  const baseTitle = t("app_title");
+  document.title = issueCount > 0 ? `[${issueCount}] ${baseTitle}` : baseTitle;
+}
+
+/* ── Telegram link helper ── */
+function telegramLinkHtml(handle) {
+  if (!handle) return "";
+  const clean = String(handle).replace(/^@/, "");
+  return `<a href="https://t.me/${escapeHtml(clean)}" target="_blank" rel="noopener" style="color:var(--teal);text-decoration:none" title="Open in Telegram">@${escapeHtml(clean)}</a>`;
+}
+
+/* ── Filter highlight ── */
+function highlightFilterMatch(text, query) {
+  if (!query) return escapeHtml(text);
+  const escaped = escapeHtml(text);
+  const qEscaped = escapeHtml(query);
+  const re = new RegExp(escapeRegExp(qEscaped), "gi");
+  return escaped.replace(re, m => `<span class="filterHighlight">${m}</span>`);
+}
+
+/* ── Batch selection ── */
+function updateBatchBar() {
+  const bar = $("batchBar");
+  const countEl = $("batchCount");
+  const actionsEl = $("batchActions");
+  if (!bar || !countEl || !actionsEl) return;
+
+  const n = state.batch.size;
+  if (n === 0) {
+    bar.hidden = true;
+    return;
+  }
+  bar.hidden = false;
+  countEl.textContent = t("batch_selected", { n });
+
+  actionsEl.innerHTML = "";
+  const addBtn = (label, cls, action) => {
+    const b = document.createElement("button");
+    b.className = `btn ${cls}`;
+    b.textContent = label;
+    b.addEventListener("click", () => doBatchAction(action));
+    actionsEl.appendChild(b);
+  };
+  addBtn(t("batch_start_all"), "btnGood", "start");
+  addBtn(t("batch_stop_all"), "btnDanger", "stop");
+  addBtn(t("batch_restart_all"), "", "restart");
+}
+
+function toggleBatchUnit(unit) {
+  if (state.batch.has(unit)) state.batch.delete(unit);
+  else state.batch.add(unit);
+  updateBatchBar();
+  updateSelectAllCheckbox();
+}
+
+function clearBatch() {
+  state.batch.clear();
+  updateBatchBar();
+  // Uncheck all checkboxes
+  for (const cb of document.querySelectorAll(".rowCheckbox[data-unit]")) {
+    cb.checked = false;
+  }
+  updateSelectAllCheckbox();
+}
+
+function updateSelectAllCheckbox() {
+  const selectAll = $("selectAllCheckbox");
+  if (!selectAll) return;
+  const visible = state.visibleUnits || [];
+  if (!visible.length) {
+    selectAll.checked = false;
+    selectAll.indeterminate = false;
+    return;
+  }
+  const selected = visible.filter(u => state.batch.has(u));
+  selectAll.checked = selected.length === visible.length;
+  selectAll.indeterminate = selected.length > 0 && selected.length < visible.length;
+}
+
+async function doBatchAction(action) {
+  const units = Array.from(state.batch);
+  if (!units.length) return;
+  const label = action === "start" ? t("batch_start_all") : action === "stop" ? t("batch_stop_all") : t("batch_restart_all");
+  const confirmed = await showConfirm(t("batch_confirm", { action: label, n: units.length }), {
+    confirmLabel: t("do_it"),
+    confirmClass: action === "stop" ? "btnDanger" : action === "start" ? "btnGood" : "btnDanger",
+  });
+  if (!confirmed) return;
+
+  let ok = 0;
+  let fail = 0;
+  for (const unit of units) {
+    try {
+      await apiPost(`/api/units/${encodeURIComponent(unit)}/${encodeURIComponent(action)}`);
+      ok++;
+    } catch {
+      fail++;
+    }
+  }
+  const msg = fail > 0 ? `${ok} ok, ${fail} failed` : `${ok} ok`;
+  showToast(label, msg, { type: fail > 0 ? "warn" : "good" });
+  clearBatch();
+  await refresh();
+}
+
+/* ── CSV Export ── */
+function exportCsv() {
+  if (!state.data || !state.data.bots) return;
+  const bots = state.data.bots;
+  const header = ["Name","Unit","Type","Status","Enabled","Uptime (s)","Tokens (24h)","Cost (24h)","Errors (24h)","Tokens (all)","Cost (all)","Last Activity"];
+  const rows = bots.map(bot => {
+    const sd = bot.systemd || {};
+    const u24 = getUsageWindow(bot, "24h") || {};
+    const all = (bot.usage && bot.usage.allTime) || {};
+    const lastAct = bot.usage ? (bot.usage.lastActivityAt || "") : "";
+    return [
+      bot.displayName || bot.unit,
+      bot.unit,
+      bot.type || "",
+      `${sd.activeState || ""}/${sd.subState || ""}`,
+      sd.unitFileState || "",
+      sd.uptimeSeconds || 0,
+      u24.tokens || 0,
+      u24.costUSD || 0,
+      u24.errors || 0,
+      all.tokens || 0,
+      all.costUSD || 0,
+      lastAct,
+    ];
+  });
+
+  const escape = (v) => {
+    const s = String(v == null ? "" : v);
+    if (s.includes(",") || s.includes('"') || s.includes("\n")) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+  };
+  const csv = [header.map(escape).join(","), ...rows.map(r => r.map(escape).join(","))].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `bots-export-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(t("export_csv"), `${bots.length} bots`, { type: "good", duration: 2000 });
+}
+
+/* ── Bot type badge ── */
+function typeBadgeHtml(botType) {
+  if (!botType) return "";
+  const lower = String(botType).toLowerCase();
+  let cls = "typeGeneric";
+  if (lower.includes("clawdbot")) cls = "typeClawdbot";
+  else if (lower.includes("droid")) cls = "typeDroid";
+  return `<span class="typeBadge ${cls}">${escapeHtml(botType)}</span>`;
+}
+
+/* ── Summary pill sparklines ── */
+function renderPillSparkline(dailyAll, key, color) {
+  if (!dailyAll || !dailyAll.length) return "";
+  const vals = dailyAll.slice(-7).map(d => d[key] || 0);
+  const max = Math.max(1, ...vals);
+  const bars = vals.map(v => {
+    const h = Math.max(1, Math.round((v / max) * 22));
+    return `<span class="pillSparkBar" style="height:${h}px;background:${color}"></span>`;
+  });
+  return `<div class="pillSparkline">${bars.join("")}</div>`;
+}
+
+/* ── Keyboard shortcuts help ── */
+function showShortcuts() {
+  const overlay = $("shortcutsOverlay");
+  if (!overlay) return;
+  const grid = $("shortcutsGrid");
+  if (grid) {
+    const shortcuts = [
+      { keys: ["Enter", "Click"], desc: t("sc_open_details") },
+      { keys: ["Esc"], desc: t("sc_close") },
+      { keys: ["\u2190 / K", "\u2192 / J"], desc: t("sc_prev_next") },
+      { keys: ["R"], desc: t("sc_refresh") },
+      { keys: ["/"], desc: t("sc_filter") },
+      { keys: ["A"], desc: t("sc_select_all") },
+      { keys: ["?"], desc: t("sc_shortcuts") },
+    ];
+    grid.innerHTML = shortcuts.map(s => `
+      <div class="shortcutRow">
+        <span class="shortcutKeys">${s.keys.map(k => `<span class="kbd">${escapeHtml(k)}</span>`).join("")}</span>
+        <span class="shortcutDesc">${escapeHtml(s.desc)}</span>
+      </div>
+    `).join("");
+  }
+  overlay.hidden = false;
+}
+
+function hideShortcuts() {
+  const overlay = $("shortcutsOverlay");
+  if (overlay) overlay.hidden = true;
+}
+
 function navigateDetails(delta) {
   const units = Array.isArray(state.visibleUnits) ? state.visibleUnits : [];
   const cur = state.selectedUnit;
@@ -1688,6 +2210,9 @@ function renderDetails(bot) {
     }
   }
 
+  // Render provider donut chart
+  renderProviderDonut(bot);
+
   state.details.logsUnit = bot.unit;
   state.details.logsRaw = "";
   state.details.logQuery = "";
@@ -1728,6 +2253,15 @@ function renderDetails(bot) {
     } catch { /* ignore */ }
   };
 
+  // Follow logs button
+  setFollowLogs(false); // reset on new detail open
+  const followBtn = $("followLogsBtn");
+  if (followBtn) {
+    followBtn.onclick = () => {
+      setFollowLogs(!state.details.followLogs);
+    };
+  }
+
   if (state.details.autoLoadLogs) {
     loadLogs(bot.unit);
   }
@@ -1755,12 +2289,13 @@ function renderLogsView() {
   const badRe = /\b(error|fatal|exception|traceback)\b/ig;
   const warnRe = /\b(warn|warning)\b/ig;
 
-  const out = shown.map((ln) => {
+  const out = shown.map((ln, i) => {
     let s = escapeHtml(ln);
     if (qRe) s = s.replace(qRe, m => `<mark class="logMatch">${m}</mark>`);
     s = s.replace(badRe, m => `<span class="logSevBad">${m}</span>`);
     s = s.replace(warnRe, m => `<span class="logSevWarn">${m}</span>`);
-    return s;
+    const lineNum = q ? "" : `<span class="logLineNum">${i + 1}</span>`;
+    return `<span class="logLine">${lineNum}<span class="logLineText">${s}</span></span>`;
   }).join("\n");
 
   if (!out) {
@@ -1768,6 +2303,8 @@ function renderLogsView() {
     return;
   }
   logsPre.innerHTML = out;
+  // Auto-scroll to bottom
+  logsPre.scrollTop = logsPre.scrollHeight;
 }
 
 async function loadLogs(unit) {
@@ -1854,6 +2391,9 @@ function closeDetails({ updateUrl = true } = {}) {
     return;
   }
 
+  // Stop log follow mode
+  setFollowLogs(false);
+
   const modal = $("detailModal");
   if (modal) modal.hidden = true;
   document.body.classList.remove("modalOpen");
@@ -1882,9 +2422,13 @@ function renderHeader(data) {
   $("pageTitle").textContent = title || t("app_title");
   document.title = title || t("app_title");
 
-  $("updatedAt").textContent = `${t("updated_prefix")}${fmtIso(data.generatedAt)}`;
+  // Preserve the connection dot when updating
+  const connDot = $("connDot");
+  const connHtml = connDot ? connDot.outerHTML : "";
+  $("updatedAt").innerHTML = `${connHtml}${t("updated_prefix")}${escapeHtml(fmtIso(data.generatedAt))}`;
   $("relativeTime").textContent = relativeTime(data.generatedAt);
   $("tzLabel").textContent = `${t("timezone_prefix")}${data.timezone || "-"}`;
+  updatePageTitleBadge(data);
 }
 
 async function refresh() {
@@ -1894,6 +2438,7 @@ async function refresh() {
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
     state.data = data;
+    setConnStatus(true);
 
     renderHeader(data);
 
@@ -1907,18 +2452,34 @@ async function refresh() {
     }
     syncDetailsFromUrl();
   } catch (e) {
+    setConnStatus(false);
     setError(t("load_api_failed", { error: String(e && (e.message || e) || "") }));
   }
 }
 
 function setAuto(on) {
   state.auto = on;
-  $("autoBtn").textContent = on ? t("auto_on") : t("auto_off");
-  $("autoBtn").className = `btn ${on ? "btnSecondary" : ""}`.trim();
+  const autoBtn = $("autoBtn");
+  // Preserve countdown ring when updating button content
+  const ring = $("countdownRing");
+  const ringHtml = ring ? ring.outerHTML : "";
+  if (autoBtn) {
+    autoBtn.innerHTML = `${on ? t("auto_on") : t("auto_off")} ${ringHtml}`;
+    autoBtn.className = `btn ${on ? "btnSecondary" : ""}`.trim();
+  }
   lsSet("auto", on ? "1" : "0");
   if (state.timer) clearInterval(state.timer);
   state.timer = null;
-  if (on) state.timer = setInterval(refresh, 30000);
+  stopCountdown();
+  if (on) {
+    state.timer = setInterval(() => {
+      refresh();
+      startCountdown();
+    }, REFRESH_INTERVAL);
+    startCountdown();
+  }
+  const ringEl = $("countdownRing");
+  if (ringEl) ringEl.style.display = on ? "" : "none";
 }
 
 window.addEventListener("DOMContentLoaded", () => {
@@ -1985,6 +2546,109 @@ window.addEventListener("DOMContentLoaded", () => {
       state.ui.sort = sortSelect.value || "name";
       lsSet("sort", state.ui.sort);
       if (state.data) renderBotsTable(state.data);
+    });
+  }
+
+  /* ── View toggle ── */
+  setViewCompact(state.viewCompact);
+  const viewToggleBtn = $("viewToggleBtn");
+  if (viewToggleBtn) {
+    viewToggleBtn.addEventListener("click", () => setViewCompact(!state.viewCompact));
+  }
+
+  /* ── Select-all checkbox ── */
+  const selectAllCb = $("selectAllCheckbox");
+  if (selectAllCb) {
+    selectAllCb.addEventListener("change", () => {
+      const visible = state.visibleUnits || [];
+      if (selectAllCb.checked) {
+        for (const u of visible) state.batch.add(u);
+      } else {
+        for (const u of visible) state.batch.delete(u);
+      }
+      if (state.data) renderBotsTable(state.data);
+    });
+  }
+
+  /* ── Batch clear ── */
+  const batchClearBtn = $("batchClearBtn");
+  if (batchClearBtn) batchClearBtn.addEventListener("click", () => {
+    clearBatch();
+    if (state.data) renderBotsTable(state.data);
+  });
+
+  /* ── CSV export ── */
+  const exportBtn = $("exportCsvBtn");
+  if (exportBtn) exportBtn.addEventListener("click", exportCsv);
+
+  /* ── Global keyboard shortcuts ── */
+  document.addEventListener("keydown", (e) => {
+    // Skip if inside input/select/textarea
+    const tag = String(e.target && e.target.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea" || tag === "select" || (e.target && e.target.isContentEditable)) return;
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+
+    const shortcutsOverlay = $("shortcutsOverlay");
+    if (shortcutsOverlay && !shortcutsOverlay.hidden) {
+      if (e.key === "Escape" || e.key === "?") {
+        e.preventDefault();
+        hideShortcuts();
+      }
+      return;
+    }
+
+    const detailModal = $("detailModal");
+    const confirmModal = $("confirmModal");
+    const isDetailOpen = detailModal && !detailModal.hidden;
+    const isConfirmOpen = confirmModal && !confirmModal.hidden;
+
+    if (isConfirmOpen) return;
+
+    if (e.key === "?") {
+      e.preventDefault();
+      showShortcuts();
+      return;
+    }
+
+    if (e.key === "r" || e.key === "R") {
+      if (!isDetailOpen) {
+        e.preventDefault();
+        refresh();
+        return;
+      }
+    }
+
+    if (e.key === "/") {
+      if (!isDetailOpen) {
+        e.preventDefault();
+        const fi = $("filterInput");
+        if (fi) fi.focus();
+        return;
+      }
+    }
+
+    if (e.key === "a" || e.key === "A") {
+      if (!isDetailOpen) {
+        e.preventDefault();
+        const selectAllCb = $("selectAllCheckbox");
+        if (selectAllCb) {
+          selectAllCb.checked = !selectAllCb.checked;
+          selectAllCb.dispatchEvent(new Event("change"));
+        }
+        return;
+      }
+    }
+  });
+
+  /* Shortcuts overlay close handlers */
+  const shortcutsOverlay = $("shortcutsOverlay");
+  const shortcutsBg = $("shortcutsBg");
+  const shortcutsCloseBtn = $("shortcutsCloseBtn");
+  if (shortcutsBg) shortcutsBg.addEventListener("click", hideShortcuts);
+  if (shortcutsCloseBtn) shortcutsCloseBtn.addEventListener("click", hideShortcuts);
+  if (shortcutsOverlay) {
+    shortcutsOverlay.addEventListener("click", (e) => {
+      if (e.target === shortcutsOverlay) hideShortcuts();
     });
   }
 
