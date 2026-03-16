@@ -10,6 +10,7 @@ const state = {
   batch: new Set(),
   pinned: new Set(JSON.parse(lsGet("pinned", "[]") || "[]")),
   viewCompact: lsGet("viewCompact", "0") === "1",
+  viewGrid: lsGet("viewGrid", "0") === "1",
   connOnline: true,
   countdownTimer: null,
   countdownStart: 0,
@@ -295,6 +296,8 @@ const I18N = {
     export_csv: "Export CSV",
     pin: "Pin",
     unpin: "Unpin",
+    layout_table: "Table",
+    layout_grid: "Grid",
     view_compact: "Compact",
     view_comfortable: "Comfortable",
     follow_logs: "Follow",
@@ -520,6 +523,8 @@ const I18N = {
     export_csv: "Экспорт CSV",
     pin: "Закрепить",
     unpin: "Открепить",
+    layout_table: "Таблица",
+    layout_grid: "Сетка",
     view_compact: "Компактный",
     view_comfortable: "Обычный",
     follow_logs: "Следить",
@@ -1462,9 +1467,48 @@ function hideHoverPreview() {
   if (el) el.hidden = true;
 }
 
+function renderBotsGrid(filtered, bots) {
+  const grid = $("botsGrid");
+  if (!grid) return;
+
+  if (!filtered.length && bots.length > 0) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:48px 12px;color:var(--muted);font-size:14px">${escapeHtml(t("no_bots_match"))}</div>`;
+    return;
+  }
+
+  // Surgical update if same bots (to prevent jitter/reloading)
+  const currentUnits = Array.from(grid.querySelectorAll(".botCard")).map(c => c.dataset.unit);
+  const nextUnits = filtered.map(f => f.bot.unit);
+  const isSameOrder = JSON.stringify(currentUnits) === JSON.stringify(nextUnits);
+
+  if (isSameOrder && currentUnits.length > 0) {
+    for (const { bot } of filtered) {
+      const card = grid.querySelector(`.botCard[data-unit="${bot.unit}"]`);
+      if (card) {
+        card.innerHTML = botCardInnerHtml(bot);
+        card.className = `botCard${state.selectedUnit === bot.unit ? " selected" : ""}${isPinned(bot.unit) ? " pinned" : ""}`;
+      }
+    }
+    return;
+  }
+
+  let html = "";
+  for (const { bot } of filtered) {
+    const isSelected = state.selectedUnit === bot.unit;
+    const pinned = isPinned(bot.unit);
+    html += `
+      <div class="botCard${isSelected ? " selected" : ""}${pinned ? " pinned" : ""}" data-unit="${escapeHtml(bot.unit)}">
+        ${botCardInnerHtml(bot)}
+      </div>
+    `;
+  }
+  grid.innerHTML = html;
+}
+
 function renderBotsTable(data) {
   const tbody = $("botsTbody");
-  tbody.innerHTML = "";
+  const grid = $("botsGrid");
+  if (!tbody || !grid) return;
 
   const bots = Array.isArray(data.bots) ? data.bots : [];
   const items = bots.map((bot, idx) => ({ bot, idx }));
@@ -1475,7 +1519,6 @@ function renderBotsTable(data) {
     if (show === "active") return (bot.systemd && bot.systemd.activeState) === "active";
     if (show === "issues") return botHasIssues(bot);
 
-    // Apply chip filter
     const chip = state.chipFilter || "all";
     if (chip === "active") return (bot.systemd && bot.systemd.activeState) === "active";
     if (chip === "inactive") return (bot.systemd && bot.systemd.activeState) !== "active";
@@ -1496,12 +1539,10 @@ function renderBotsTable(data) {
     if (sortMode === "errors24h_desc") return (Number(ub.errors) || 0) - (Number(ua.errors) || 0);
     if (sortMode === "uptime_desc") return (Number(B.systemd && B.systemd.uptimeSeconds) || 0) - (Number(A.systemd && A.systemd.uptimeSeconds) || 0);
     if (sortMode === "last_activity_desc") return getBotLastActivityMs(B) - getBotLastActivityMs(A);
-    // "name" mode preserves server/config order from /api/bots.
     return a.idx - b.idx;
   };
 
   filtered.sort((a, b) => {
-    // Pinned bots always come first
     const pa = isPinned(a.bot.unit) ? 0 : 1;
     const pb = isPinned(b.bot.unit) ? 0 : 1;
     if (pa !== pb) return pa - pb;
@@ -1513,196 +1554,61 @@ function renderBotsTable(data) {
   updateDetailsNavButtons();
 
   const countEl = $("visibleCount");
-  if (countEl) {
-    countEl.textContent = `${filtered.length}/${bots.length}`;
+  if (countEl) countEl.textContent = `${filtered.length}/${bots.length}`;
+
+  if (state.viewGrid) {
+    tbody.innerHTML = "";
+    renderBotsGrid(filtered, bots);
+    return;
   }
 
+  grid.innerHTML = "";
   if (!filtered.length && bots.length > 0) {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `<td colspan="6" style="text-align:center;padding:32px 12px;color:var(--muted);font-size:13px">${escapeHtml(t("no_bots_match"))}</td>`;
-    tbody.appendChild(tr);
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:32px 12px;color:var(--muted);font-size:13px">${escapeHtml(t("no_bots_match"))}</td></tr>`;
+    return;
+  }
+
+  // Surgical update for table
+  const currentUnits = Array.from(tbody.querySelectorAll("tr:not(.sparkRow)")).map(r => r.dataset.unit);
+  const nextUnits = filtered.map(f => f.bot.unit);
+  const isSameOrder = JSON.stringify(currentUnits) === JSON.stringify(nextUnits);
+
+  if (isSameOrder && currentUnits.length > 0) {
+    for (const { bot } of filtered) {
+      const row = tbody.querySelector(`tr:not(.sparkRow)[data-unit="${bot.unit}"]`);
+      const sparkRow = tbody.querySelector(`tr.sparkRow[data-unit="${bot.unit}"]`);
+      if (row && sparkRow) {
+        // We need to parse the two-row HTML structure. To keep it simple but surgical,
+        // we'll update the whole 2-row block by using a temporary container.
+        const temp = document.createElement("tbody");
+        temp.innerHTML = botRowHtml(bot, {
+          isChecked: state.batch.has(bot.unit),
+          isSelected: state.selectedUnit === bot.unit
+        });
+        row.innerHTML = temp.firstElementChild.innerHTML;
+        row.className = temp.firstElementChild.className;
+        sparkRow.innerHTML = temp.lastElementChild.innerHTML;
+        sparkRow.className = temp.lastElementChild.className;
+      }
+    }
+    updateBatchBar();
+    updateSelectAllCheckbox();
+    return;
   }
 
   const shouldAnimate = !state._skipRowAnim;
   let animIdx = 0;
+  let html = "";
 
   for (const { bot } of filtered) {
-    const tr = document.createElement("tr");
-    tr.classList.add("rowClickable");
-    if (state.selectedUnit === bot.unit) tr.classList.add("rowSelected");
-
-    const activeState = String(bot.systemd && bot.systemd.activeState || "");
-    if (activeState === "active") tr.classList.add("rowStateActive");
-    else if (activeState === "activating" || activeState === "deactivating" || activeState === "reloading") tr.classList.add("rowStateTransition");
-    else tr.classList.add("rowStateInactive");
-
-    const usage24 = getUsageWindow(bot, "24h") || {};
-    const lastAct = bot.usage ? bot.usage.lastActivityAt : null;
-    const daily7 = (bot.usage && bot.usage.daily30d) ? bot.usage.daily30d.slice(-7) : [];
-    const hourly24h = (bot.usage && bot.usage.hourly24h) ? bot.usage.hourly24h : [];
-    const daily30d = (bot.usage && bot.usage.daily30d) ? bot.usage.daily30d : [];
-
-    const issues = getHealthIssues(bot);
-    const primaryIssue = pickPrimaryIssue(issues);
-    const primaryMsg = primaryIssue ? String(primaryIssue.message || primaryIssue.key || "") : "";
-    const primarySev = primaryIssue ? String(primaryIssue.severity || "").toLowerCase() : "";
-
-    const dotClass = statusDotClass(bot);
-    const statusLabel = `${systemdActiveLabel(activeState)}${bot.systemd.subState ? " (" + systemdSubLabel(bot.systemd.subState) + ")" : ""}`;
-    const issueHtml = primaryMsg
-      ? `<div class="issueLine ${primarySev === "error" ? "bad" : "warn"}">${escapeHtml(primaryMsg)}</div>`
-      : `<div class="issueLine">&nbsp;</div>`;
-
-    const nameParts = [];
-    const pinStar = isPinned(bot.unit) ? "\u2605" : "\u2606";
-    const pinCls = isPinned(bot.unit) ? "pinBtn pinned" : "pinBtn";
-    const filterQ = String(state.ui.filter || "").trim();
-    const displayName = highlightFilterMatch(bot.displayName || bot.unit, filterQ);
-    nameParts.push(`<div class="providerName"><button class="${pinCls}" data-pin-unit="${escapeHtml(bot.unit)}" title="${isPinned(bot.unit) ? t("unpin") : t("pin")}">${pinStar}</button>${displayName}${typeBadgeHtml(bot.type)}</div>`);
-    const metaParts = [];
-    if (bot.telegramHandle) metaParts.push(telegramLinkHtml(bot.telegramHandle));
-    const metaText = [];
-    if (bot.type) metaText.push(bot.type);
-    if (bot.profile) metaText.push(`${t("meta_profile")}:${bot.profile}`);
-    if (bot.scope === "user") metaText.push(bot.user ? `${t("meta_user")}:${bot.user}` : t("scope_user"));
-    if (bot.gatewayPort) metaText.push(`${t("meta_port")}:${bot.gatewayPort}`);
-    metaText.push(`${t("meta_unit")}:${bot.unit}`);
-    if (metaText.length) metaParts.push(escapeHtml(metaText.join(" \u2022 ")));
-    if (metaParts.length) nameParts.push(`<div class="providerMeta">${metaParts.join(" \u2022 ")}</div>`);
-
-    const actionsTd = document.createElement("td");
-    const actionsDiv = document.createElement("div");
-    actionsDiv.className = "actions";
-
-    const canStop = activeState === "active" || activeState === "activating" || activeState === "deactivating";
-    if (canStop) {
-      actionsDiv.appendChild(makeActionBtn(t("action_stop"), "btnDanger", () => doAction(bot.unit, "stop")));
-      actionsDiv.appendChild(makeActionBtn(t("action_restart"), "", () => doAction(bot.unit, "restart")));
-    } else {
-      actionsDiv.appendChild(makeActionBtn(t("action_start"), "btnGood", () => doAction(bot.unit, "start")));
-    }
-
-    const ufs = String(bot.systemd.unitFileState || "").toLowerCase();
-    const canDisable = ufs.startsWith("enabled");
-    const canEnable = ufs === "disabled" || ufs === "indirect";
-    if (canDisable) actionsDiv.appendChild(makeActionBtn(t("action_disable"), "btnDanger", () => doAction(bot.unit, "disable")));
-    if (canEnable) actionsDiv.appendChild(makeActionBtn(t("action_enable"), "btnGood", () => doAction(bot.unit, "enable")));
-
-    actionsDiv.appendChild(makeActionBtn(t("action_details"), "btnDetails", () => toggleDetails(bot.unit)));
-    const actionsWrap = document.createElement("div");
-    actionsWrap.className = "actionsWrap";
-    actionsWrap.appendChild(actionsDiv);
-    actionsTd.appendChild(actionsWrap);
-
-    const errors24 = Number(usage24.errors) || 0;
-    const restarts = Number(bot.systemd.nRestarts) || 0;
-    if (activeState !== "active") tr.classList.add("rowBad");
-    else if (worstHealthSeverity(issues) >= 2) tr.classList.add("rowBad");
-    else if (errors24 > 0 || restarts > 0 || bot.systemd.subState !== "running" || worstHealthSeverity(issues) >= 1) tr.classList.add("rowWarn");
-
-    // Recent activity glow (active in last 5 minutes)
-    const lastActMs = getBotLastActivityMs(bot);
-    if (lastActMs > 0 && (Date.now() - lastActMs) < 5 * 60 * 1000) {
-      tr.classList.add("rowRecentActivity");
-    }
-    if (isPinned(bot.unit)) tr.classList.add("rowPinned");
-
-    const isChecked = state.batch.has(bot.unit);
-
-    const uptimeHtml = `${renderUptimeBar(bot.systemd.uptimeSeconds)}${restarts > 0 ? `<div class="restartsBadge" title="${t("sd_restarts")}">\u21bb ${restarts}</div>` : `<div class="restartsBadge">&nbsp;</div>`}`;
-    const activityHtml = lastAct ? `<div class="activityLine" title="${escapeHtml(lastAct)}">${escapeHtml(relativeTime(lastAct))}</div>` : `<div class="activityLine">&nbsp;</div>`;
-
-    const usageParts = [];
-    usageParts.push(`<span class="usageToken">${fmtInt(usage24.tokens)} tok</span>`);
-    usageParts.push(`<span class="usageCost">${fmtMoneyUsd(usage24.costUSD)}</span>`);
-    usageParts.push(errors24 > 0 ? `<span class="usageErr">${fmtInt(errors24)} err</span>` : `<span class="usageErr">&nbsp;</span>`);
-
-    const sparkHtml = renderFullWidthSparklines(hourly24h, daily30d);
-
-    actionsTd.setAttribute("rowspan", "2");
-    actionsTd.classList.add("actionsTd");
-
-    tr.innerHTML = `
-      <td style="width:32px;padding-right:0;vertical-align:middle" rowspan="2"><input type="checkbox" class="rowCheckbox" data-unit="${escapeHtml(bot.unit)}" ${isChecked ? "checked" : ""} /></td>
-      <td><div class="cellClip">${nameParts.join("")}</div></td>
-      <td><div class="cellClip"><span class="statusDot ${dotClass}"></span>${enabledBadgeHtml(bot.systemd.unitFileState)}${issueHtml}</div></td>
-      <td><div class="cellClip">${uptimeHtml}${activityHtml}</div></td>
-      <td class="num usageCell"><div class="cellClip">${usageParts.join(" ")}</div></td>
-    `;
-    tr.appendChild(actionsTd);
-    if (shouldAnimate && animIdx < 12) {
-      tr.classList.add("rowAnimIn");
-      tr.style.animationDelay = `${animIdx * 30}ms`;
-    }
+    html += botRowHtml(bot, {
+      animIdx: shouldAnimate ? animIdx : -1,
+      isChecked: state.batch.has(bot.unit),
+      isSelected: state.selectedUnit === bot.unit
+    });
     animIdx++;
-    tbody.appendChild(tr);
-
-    // Sparkline sub-row (spans under all data columns, left of actions)
-    const sparkTr = document.createElement("tr");
-    sparkTr.className = "sparkRow";
-    if (tr.classList.contains("rowBad")) sparkTr.classList.add("rowBad");
-    if (tr.classList.contains("rowWarn")) sparkTr.classList.add("rowWarn");
-    if (tr.classList.contains("rowPinned")) sparkTr.classList.add("rowPinned");
-    if (tr.classList.contains("rowRecentActivity")) sparkTr.classList.add("rowRecentActivity");
-    sparkTr.innerHTML = `<td colspan="4" class="sparkTd">${sparkHtml}</td>`;
-    if (shouldAnimate && animIdx <= 13) {
-      sparkTr.classList.add("rowAnimIn");
-      sparkTr.style.animationDelay = `${(animIdx - 1) * 30}ms`;
-    }
-    sparkTr.addEventListener("click", () => toggleDetails(bot.unit));
-    tbody.appendChild(sparkTr);
-
-    // Checkbox handler
-    const cb = tr.querySelector(".rowCheckbox[data-unit]");
-    if (cb) {
-      cb.addEventListener("change", (e) => {
-        e.stopPropagation();
-        toggleBatchUnit(bot.unit);
-      });
-      cb.addEventListener("click", (e) => e.stopPropagation());
-    }
-
-    // Pin button handler
-    const pinBtn = tr.querySelector("[data-pin-unit]");
-    if (pinBtn) {
-      pinBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        togglePin(bot.unit);
-      });
-    }
-
-    tr.addEventListener("click", (e) => {
-      const target = e.target;
-      if (target && target.closest && target.closest("button")) return;
-      if (target && (target.classList.contains("rowCheckbox") || target.closest(".rowCheckbox"))) return;
-      hideHoverPreview();
-      toggleDetails(bot.unit);
-    });
-
-    // Hover preview (desktop only)
-    tr.addEventListener("mouseenter", (e) => {
-      if (window.innerWidth < 680) return;
-      clearTimeout(_hoverTimer);
-      _hoverTimer = setTimeout(() => showHoverPreview(bot, e.clientX, e.clientY), 500);
-    });
-    tr.addEventListener("mousemove", (e) => {
-      if (_hoverUnit !== bot.unit) return;
-      const el = $("hoverPreview");
-      if (!el || el.hidden) return;
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      let left = e.clientX + 16;
-      let top = e.clientY - 20;
-      const rect = el.getBoundingClientRect();
-      if (left + rect.width > vw - 16) left = e.clientX - rect.width - 16;
-      if (top + rect.height > vh - 16) top = vh - rect.height - 16;
-      if (top < 16) top = 16;
-      el.style.left = `${left}px`;
-      el.style.top = `${top}px`;
-    });
-    tr.addEventListener("mouseleave", hideHoverPreview);
   }
-
+  tbody.innerHTML = html;
   updateBatchBar();
   updateSelectAllCheckbox();
 }
@@ -2370,6 +2276,23 @@ function setViewCompact(compact) {
     btn.textContent = compact ? t("view_comfortable") : t("view_compact");
     btn.classList.toggle("active", compact);
   }
+  if (state.data) renderBotsTable(state.data);
+}
+
+function setLayoutGrid(grid) {
+  state.viewGrid = grid;
+  lsSet("viewGrid", grid ? "1" : "0");
+  document.body.classList.toggle("botsViewGrid", grid);
+  const btn = $("layoutToggleBtn");
+  if (btn) {
+    btn.textContent = grid ? t("layout_grid") : t("layout_table");
+    btn.classList.toggle("active", grid);
+  }
+  const tableWrap = document.querySelector(".tableWrap");
+  const gridContainer = $("botsGrid");
+  if (tableWrap) tableWrap.hidden = grid;
+  if (gridContainer) gridContainer.hidden = !grid;
+  if (state.data) renderBotsTable(state.data);
 }
 
 /* ── Connection status ── */
@@ -2609,8 +2532,15 @@ function updateBatchBar() {
 }
 
 function toggleBatchUnit(unit) {
+  const isChecked = !state.batch.has(unit);
   if (state.batch.has(unit)) state.batch.delete(unit);
   else state.batch.add(unit);
+  
+  // Visually update checkboxes for this unit
+  for (const cb of document.querySelectorAll(`.rowCheckbox[data-unit="${unit}"]`)) {
+    cb.checked = isChecked;
+  }
+  
   updateBatchBar();
   updateSelectAllCheckbox();
 }
@@ -2723,6 +2653,153 @@ function typeBadgeHtml(botType) {
   if (lower.includes("clawdbot")) cls = "typeClawdbot";
   else if (lower.includes("droid")) cls = "typeDroid";
   return `<span class="typeBadge ${cls}">${escapeHtml(botType)}</span>`;
+}
+
+function botCardInnerHtml(bot) {
+  const isSelected = state.selectedUnit === bot.unit;
+  const pinned = isPinned(bot.unit);
+  const sd = bot.systemd || {};
+  const dotCls = statusDotClass(bot);
+  const usage24 = getUsageWindow(bot, "24h") || {};
+  const hourly24h = (bot.usage && bot.usage.hourly24h) ? bot.usage.hourly24h : [];
+
+  let sparkBars = "";
+  if (hourly24h.length > 0) {
+    const vals = hourly24h.map(h => (Number(h.tokens) || 0));
+    const max = Math.max(1, ...vals);
+    sparkBars = vals.map(v => {
+      const h = Math.max(1, Math.round((v / max) * 24));
+      return `<span class="botCardSparkBar" style="height:${h}px"></span>`;
+    }).join("");
+  }
+
+  return `
+    <div class="botCardPinned">\u{1F4CC}</div>
+    <div class="botCardHeader">
+      <div class="botCardTitleWrap">
+        <h3 class="botCardTitle">${escapeHtml(bot.displayName || bot.unit)}</h3>
+        <div class="botCardSub">${typeBadgeHtml(bot.type)}</div>
+      </div>
+      <div class="botCardStatus">
+        <span class="statusDot ${dotCls}"></span>
+        <span class="${dotCls}">${escapeHtml(systemdActiveLabel(sd.activeState))}</span>
+      </div>
+    </div>
+    <div class="botCardStats">
+      <div class="botCardStat">
+        <span class="botCardStatLabel">${t("th_uptime")}</span>
+        <span class="botCardStatVal">${fmtSeconds(sd.uptimeSeconds)}</span>
+      </div>
+      <div class="botCardStat">
+        <span class="botCardStatLabel">${t("th_tokens24h")}</span>
+        <span class="botCardStatVal">${fmtInt(usage24.tokens)}</span>
+      </div>
+      <div class="botCardStat">
+        <span class="botCardStatLabel">${t("th_cost24h")}</span>
+        <span class="botCardStatVal">${fmtMoneyUsd(usage24.costUSD)}</span>
+      </div>
+      <div class="botCardStat">
+        <span class="botCardStatLabel">${t("th_errors24h")}</span>
+        <span class="botCardStatVal${usage24.errors > 0 ? " bad" : ""}">${fmtInt(usage24.errors)}</span>
+      </div>
+    </div>
+    <div class="botCardSparkline">
+      ${sparkBars}
+    </div>
+    <div class="botCardActions">
+      <button class="btn btnSmall btnDetails" data-action="details">${t("action_details")}</button>
+      <button class="btn btnSmall btnSecondary" data-action="pin">${pinned ? t("unpin") : t("pin")}</button>
+    </div>
+  `;
+}
+
+function botRowHtml(bot, { animIdx = -1, isChecked = false, isSelected = false } = {}) {
+  const activeState = String(bot.systemd && bot.systemd.activeState || "");
+  const usage24 = getUsageWindow(bot, "24h") || {};
+  const lastAct = bot.usage ? bot.usage.lastActivityAt : null;
+  const hourly24h = (bot.usage && bot.usage.hourly24h) ? bot.usage.hourly24h : [];
+  const daily30d = (bot.usage && bot.usage.daily30d) ? bot.usage.daily30d : [];
+
+  const issues = getHealthIssues(bot);
+  const primaryIssue = pickPrimaryIssue(issues);
+  const primaryMsg = primaryIssue ? String(primaryIssue.message || primaryIssue.key || "") : "";
+  const primarySev = primaryIssue ? String(primaryIssue.severity || "").toLowerCase() : "";
+
+  const dotClass = statusDotClass(bot);
+  const issueHtml = primaryMsg
+    ? `<div class="issueLine ${primarySev === "error" ? "bad" : "warn"}">${escapeHtml(primaryMsg)}</div>`
+    : `<div class="issueLine">&nbsp;</div>`;
+
+  const pinStar = isPinned(bot.unit) ? "\u2605" : "\u2606";
+  const pinCls = isPinned(bot.unit) ? "pinBtn pinned" : "pinBtn";
+  const filterQ = String(state.ui.filter || "").trim();
+  const displayName = highlightFilterMatch(bot.displayName || bot.unit, filterQ);
+  
+  let nameHtml = `<div class="providerName"><button class="${pinCls}" data-unit="${escapeHtml(bot.unit)}" data-action="pin" title="${isPinned(bot.unit) ? t("unpin") : t("pin")}">${pinStar}</button>${displayName}${typeBadgeHtml(bot.type)}</div>`;
+  const metaParts = [];
+  if (bot.telegramHandle) metaParts.push(telegramLinkHtml(bot.telegramHandle));
+  
+  const metaText = [];
+  if (bot.type) metaText.push(bot.type);
+  if (bot.profile) metaText.push(`${t("meta_profile")}:${bot.profile}`);
+  if (bot.scope === "user") metaText.push(bot.user ? `${t("meta_user")}:${bot.user}` : t("scope_user"));
+  if (bot.gatewayPort) metaText.push(`${t("meta_port")}:${bot.gatewayPort}`);
+  metaText.push(`${t("meta_unit")}:${bot.unit}`);
+  if (metaText.length) metaParts.push(escapeHtml(metaText.join(" \u2022 ")));
+  if (metaParts.length) nameHtml += `<div class="providerMeta">${metaParts.join(" \u2022 ")}</div>`;
+
+  const canStop = activeState === "active" || activeState === "activating" || activeState === "deactivating";
+  const ufs = String(bot.systemd.unitFileState || "").toLowerCase();
+  const canDisable = ufs.startsWith("enabled");
+  const canEnable = ufs === "disabled" || ufs === "indirect";
+
+  const errors24 = Number(usage24.errors) || 0;
+  const restarts = Number(bot.systemd.nRestarts) || 0;
+  
+  let rowClasses = ["rowClickable"];
+  if (isSelected) rowClasses.push("rowSelected");
+  if (activeState === "active") rowClasses.push("rowStateActive");
+  else if (["activating", "deactivating", "reloading"].includes(activeState)) rowClasses.push("rowStateTransition");
+  else rowClasses.push("rowStateInactive");
+
+  if (activeState !== "active" || worstHealthSeverity(issues) >= 2) rowClasses.push("rowBad");
+  else if (errors24 > 0 || restarts > 0 || bot.systemd.subState !== "running" || worstHealthSeverity(issues) >= 1) rowClasses.push("rowWarn");
+
+  const lastActMs = getBotLastActivityMs(bot);
+  if (lastActMs > 0 && (Date.now() - lastActMs) < 5 * 60 * 1000) rowClasses.push("rowRecentActivity");
+  if (isPinned(bot.unit)) rowClasses.push("rowPinned");
+
+  const uptimeHtml = `${renderUptimeBar(bot.systemd.uptimeSeconds)}${restarts > 0 ? `<div class="restartsBadge" title="${t("sd_restarts")}">\u21bb ${restarts}</div>` : `<div class="restartsBadge">&nbsp;</div>`}`;
+  const activityHtml = lastAct ? `<div class="activityLine" title="${escapeHtml(lastAct)}">${escapeHtml(relativeTime(lastAct))}</div>` : `<div class="activityLine">&nbsp;</div>`;
+
+  const usageHtml = `<span class="usageToken">${fmtInt(usage24.tokens)} tok</span> <span class="usageCost">${fmtMoneyUsd(usage24.costUSD)}</span> ${errors24 > 0 ? `<span class="usageErr">${fmtInt(errors24)} err</span>` : `<span class="usageErr">&nbsp;</span>`}`;
+  const sparkHtml = renderFullWidthSparklines(hourly24h, daily30d);
+
+  const animStyle = (animIdx >= 0 && animIdx < 12) ? `style="animation-delay:${animIdx * 30}ms"` : "";
+  const rowClsStr = rowClasses.join(" ") + (animIdx >= 0 && animIdx < 12 ? " rowAnimIn" : "");
+
+  return `
+      <tr class="${rowClsStr}" ${animStyle} data-unit="${escapeHtml(bot.unit)}">
+        <td style="width:32px;padding-right:0;vertical-align:middle" rowspan="2"><input type="checkbox" class="rowCheckbox" data-unit="${escapeHtml(bot.unit)}" ${isChecked ? "checked" : ""} /></td>
+        <td><div class="cellClip">${nameHtml}</div></td>
+        <td><div class="cellClip"><span class="statusDot ${dotClass}"></span>${enabledBadgeHtml(bot.systemd.unitFileState)}${issueHtml}</div></td>
+        <td><div class="cellClip">${uptimeHtml}${activityHtml}</div></td>
+        <td class="num usageCell"><div class="cellClip">${usageHtml}</div></td>
+        <td class="actionsTd" rowspan="2">
+          <div class="actionsWrap">
+            <div class="actions">
+              ${canStop ? `<button class="btn btnSmall btnDanger" data-action="stop">${t("action_stop")}</button><button class="btn btnSmall" data-action="restart">${t("action_restart")}</button>` : `<button class="btn btnSmall btnGood" data-action="start">${t("action_start")}</button>`}
+              ${canDisable ? `<button class="btn btnSmall btnDanger" data-action="disable">${t("action_disable")}</button>` : ""}
+              ${canEnable ? `<button class="btn btnSmall btnGood" data-action="enable">${t("action_enable")}</button>` : ""}
+              <button class="btn btnSmall btnDetails" data-action="details">${t("action_details")}</button>
+            </div>
+          </div>
+        </td>
+      </tr>
+      <tr class="sparkRow ${rowClsStr}" ${animStyle} data-unit="${escapeHtml(bot.unit)}">
+        <td colspan="4" class="sparkTd">${sparkHtml}</td>
+      </tr>
+  `;
 }
 
 /* ── Summary pill sparklines ── */
@@ -3751,6 +3828,18 @@ function initDetailsUi() {
   state.details.inited = true;
 }
 
+function updateSelectionClasses() {
+  const sel = state.selectedUnit;
+  // Grid
+  for (const card of document.querySelectorAll(".botCard")) {
+    card.classList.toggle("selected", card.dataset.unit === sel);
+  }
+  // Table
+  for (const row of document.querySelectorAll("#botsTbody tr")) {
+    row.classList.toggle("rowSelected", row.dataset.unit === sel);
+  }
+}
+
 function openDetails(unit, { updateUrl = true } = {}) {
   hideHoverPreview();
   if (!state.details.inited) initDetailsUi();
@@ -3764,7 +3853,9 @@ function openDetails(unit, { updateUrl = true } = {}) {
 
   state.selectedUnit = unit;
   renderDetails(bot);
-  if (state.data) renderBotsTable(state.data);
+  
+  updateSelectionClasses();
+
   if (updateUrl) setUrlUnit(unit, { replace: wasOpen });
   const closeBtn = $("closeDetailBtn");
   if (closeBtn) closeBtn.focus();
@@ -3861,7 +3952,7 @@ function closeDetails({ updateUrl = true } = {}) {
   }
 
   state.selectedUnit = null;
-  if (state.data) renderBotsTable(state.data);
+  updateSelectionClasses();
 
   const last = state.details.lastFocus;
   state.details.lastFocus = null;
@@ -4094,6 +4185,12 @@ window.addEventListener("DOMContentLoaded", () => {
     viewToggleBtn.addEventListener("click", () => setViewCompact(!state.viewCompact));
   }
 
+  const layoutToggleBtn = $("layoutToggleBtn");
+  if (layoutToggleBtn) {
+    layoutToggleBtn.addEventListener("click", () => setLayoutGrid(!state.viewGrid));
+  }
+  setLayoutGrid(state.viewGrid);
+
   /* ── Select-all checkbox ── */
   const selectAllCb = $("selectAllCheckbox");
   if (selectAllCb) {
@@ -4114,6 +4211,75 @@ window.addEventListener("DOMContentLoaded", () => {
     clearBatch();
     if (state.data) renderBotsTable(state.data);
   });
+
+  /* ── Grid/Table delegation ── */
+  const botsGrid = $("botsGrid");
+  if (botsGrid) {
+    botsGrid.addEventListener("click", (e) => {
+      const card = e.target.closest(".botCard");
+      if (!card) return;
+      const unit = card.dataset.unit;
+      if (!unit) return;
+      const btn = e.target.closest("button");
+      if (btn) {
+        const action = btn.dataset.action;
+        if (action === "pin") { e.stopPropagation(); togglePin(unit); return; }
+        if (action === "details") { e.stopPropagation(); toggleDetails(unit); return; }
+      }
+      toggleDetails(unit);
+    });
+  }
+  const botsTbody = $("botsTbody");
+  if (botsTbody) {
+    botsTbody.addEventListener("click", (e) => {
+      const target = e.target;
+      const row = target.closest("tr");
+      if (!row) return;
+      const unit = row.dataset.unit;
+      if (!unit) return;
+      const btn = target.closest("button");
+      if (btn) {
+        const action = btn.dataset.action;
+        if (action) {
+          e.stopPropagation();
+          if (action === "pin") togglePin(unit);
+          else if (action === "details") toggleDetails(unit);
+          else if (["stop", "restart", "start", "enable", "disable"].includes(action)) doAction(unit, action);
+          return;
+        }
+      }
+      if (target.closest(".rowCheckbox")) { e.stopPropagation(); toggleBatchUnit(unit); return; }
+      toggleDetails(unit);
+    });
+    // Hover preview (desktop only)
+    botsTbody.addEventListener("mouseenter", (e) => {
+      const row = e.target.closest("tr");
+      if (!row || row.classList.contains("sparkRow") || window.innerWidth < 680) return;
+      const unit = row.dataset.unit;
+      if (!unit || !state.data) return;
+      const bot = state.data.bots.find(b => b.unit === unit);
+      if (!bot) return;
+      clearTimeout(_hoverTimer);
+      _hoverTimer = setTimeout(() => showHoverPreview(bot, e.clientX, e.clientY), 500);
+    }, true);
+    botsTbody.addEventListener("mousemove", (e) => {
+      const row = e.target.closest("tr");
+      if (!row || row.classList.contains("sparkRow") || _hoverUnit !== row.dataset.unit) return;
+      const el = $("hoverPreview");
+      if (!el || el.hidden) return;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      let left = e.clientX + 16;
+      let top = e.clientY - 20;
+      const rect = el.getBoundingClientRect();
+      if (left + rect.width > vw - 16) left = e.clientX - rect.width - 16;
+      if (top + rect.height > vh - 16) top = vh - rect.height - 16;
+      if (top < 16) top = 16;
+      el.style.left = `${left}px`;
+      el.style.top = `${top}px`;
+    }, true);
+    botsTbody.addEventListener("mouseleave", hideHoverPreview, true);
+  }
 
   /* ── CSV export ── */
   const exportBtn = $("exportCsvBtn");
@@ -4204,19 +4370,30 @@ window.addEventListener("DOMContentLoaded", () => {
 
   function renderCmdResults(query) {
     if (!cmdPaletteResults) return;
-    const q = String(query || "").trim();
+    const qRaw = String(query || "").trim();
+    const qLower = qRaw.toLowerCase();
     const bots = state.data ? (state.data.bots || []) : [];
     cmdItems = [];
+
+    // Check for special filters
+    const isFilter = qLower.startsWith("is:");
+    const filterType = isFilter ? qLower.slice(3) : null;
 
     // Bot results
     const botResults = [];
     for (const bot of bots) {
+      if (isFilter) {
+        if (filterType === "active" && (bot.systemd && bot.systemd.activeState) !== "active") continue;
+        if (filterType === "inactive" && (bot.systemd && bot.systemd.activeState) === "active") continue;
+        if (filterType === "issue" && !botHasIssues(bot)) continue;
+      }
+
       const name = bot.displayName || bot.unit;
       const searchText = [name, bot.telegramHandle, bot.unit, bot.type, bot.profile].filter(Boolean).join(" ");
-      const m = fuzzyMatch(q, searchText);
-      if (!m.match) continue;
-      const nameMatch = fuzzyMatch(q, name);
-      botResults.push({ bot, score: m.score, nameMatch });
+      const m = fuzzyMatch(qRaw, searchText);
+      if (!m.match && !isFilter) continue;
+      const nameMatch = fuzzyMatch(qRaw, name);
+      botResults.push({ bot, score: isFilter ? 100 : m.score, nameMatch });
     }
     botResults.sort((a, b) => b.score - a.score);
 
@@ -4228,10 +4405,11 @@ window.addEventListener("DOMContentLoaded", () => {
       { icon: "\u{1F50D}", name: t("cmd_filter"), meta: "/", action: () => { closeCmdPalette(); const fi = $("filterInput"); if (fi) fi.focus(); } },
       { icon: "\u{2328}", name: t("cmd_shortcuts"), meta: "?", action: () => { closeCmdPalette(); showShortcuts(); } },
       { icon: "\u{1F4CB}", name: t("cmd_compact"), meta: "", action: () => { closeCmdPalette(); setViewCompact(!state.viewCompact); } },
+      { icon: "\u{1F532}", name: state.viewGrid ? t("layout_table") : t("layout_grid"), meta: "", action: () => { closeCmdPalette(); setLayoutGrid(!state.viewGrid); } },
     ];
 
-    const filteredActions = q
-      ? actions.filter(a => fuzzyMatch(q, a.name + " " + a.meta).match)
+    const filteredActions = qRaw
+      ? actions.filter(a => fuzzyMatch(qRaw, a.name + " " + a.meta).match)
       : actions;
 
     let html = "";

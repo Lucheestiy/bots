@@ -2298,7 +2298,7 @@ tbody tr.rowClickable:focus-within{
 .auroraOrb{
   position:absolute;
   border-radius:50%;
-  filter:blur(120px);
+  filter:blur(40px);
   opacity:0;
   animation:auroraFloat linear infinite;
   will-change:transform,opacity;
@@ -2528,3 +2528,142 @@ tbody tr.rowClickable.rowBad:hover{
 /* ═══════════════════════════════════════════
    Footer Enhancement (override base .footer)
    ═══════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════
+   Grid View Layout
+   ═══════════════════════════════════════════ */
+.botsGrid{
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap:16px;
+  margin-top:10px;
+  padding: 4px;
+}
+.botCard{
+  background:linear-gradient(180deg, rgba(22,33,48,.96) 0%, rgba(14,22,33,.96) 100%);
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:16px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  position:relative;
+  overflow:hidden;
+  cursor:pointer;
+  transition: transform var(--transition-med), border-color var(--transition-med), box-shadow var(--transition-med);
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+  min-height: 220px;
+  will-change: transform, box-shadow;
+}
+.botCard:hover{
+  transform:translateY(-4px);
+  border-color:rgba(94,234,212,.3);
+  box-shadow: 0 12px 40px rgba(0,0,0,.4), 0 0 20px rgba(94,234,212,.05);
+}
+.botCard.selected{
+  outline:2px solid var(--teal);
+  outline-offset:-2px;
+}
+.botCardHeader{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:10px;
+}
+.botCardTitleWrap{flex:1;min-width:0}
+.botCardTitle{
+  margin:0;
+  font-size:16px;
+  font-weight:650;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  color:var(--text);
+}
+.botCardSub{
+  font-size:12px;
+  color:var(--muted);
+  margin-top:2px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.botCardStatus{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-size:12px;
+  font-weight:500;
+}
+.botCardStats{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:8px;
+  margin-top:4px;
+}
+.botCardStat{
+  background:rgba(15,22,32,.4);
+  padding:8px;
+  border-radius:12px;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.botCardStatLabel{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
+.botCardStatVal{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.botCardStatVal.bad{color:var(--bad)}
+.botCardSparkline{
+  height:32px;
+  margin-top:4px;
+  display:flex;
+  align-items:flex-end;
+  gap:2px;
+  background: rgba(0,0,0,.15);
+  padding: 4px;
+  border-radius: 8px;
+}
+.botCardSparkBar{
+  flex:1;
+  background:var(--blue);
+  border-radius:1px 1px 0 0;
+  min-height:2px;
+  opacity:.6;
+  transition: opacity 150ms ease;
+}
+.botCardSparkBar:hover{
+  opacity: 1;
+}
+.botCardActions{
+  margin-top:auto;
+  display:flex;
+  gap:8px;
+  padding-top:10px;
+  border-top:1px solid rgba(35,49,66,.4);
+}
+.botCardPinned{
+  position:absolute;
+  top:12px;
+  right:12px;
+  color:var(--teal);
+  font-size:14px;
+  opacity:0;
+  transition:opacity var(--transition-fast);
+}
+.botCard:hover .botCardPinned{opacity:1}
+.botCard.pinned .botCardPinned{opacity:1}
+
+.btnView.active{
+  background:var(--teal) !important;
+  color:var(--bg) !important;
+  border-color:var(--teal) !important;
+}
+
+.botsViewGrid .tableWrap{display:none}
+.botsViewGrid .botsGrid{display:grid}
+.botsViewTable .botsGrid{display:none}
+.botsViewTable .tableWrap{display:block}
+
+body:not(.botsViewGrid) .botsGrid{display:none}
+body.botsViewGrid .tableWrap{display:none}
+

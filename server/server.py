@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import datetime as _dt
 import json
 import os
@@ -1160,9 +1161,8 @@ def _build_payload(cfg: dict[str, object]) -> dict[str, object]:
         "errors24h": 0,
     }
 
-    for spec in specs:
+    def _process_spec(spec: UnitSpec) -> dict[str, object]:
         u = spec.unit
-        totals["botsTotal"] += 1
         show = _systemctl_show(spec, props)
         botdef = _detect_bot_def(spec, show)
         override = bot_mappings.get(spec.unit)
@@ -1180,8 +1180,6 @@ def _build_payload(cfg: dict[str, object]) -> dict[str, object]:
 
         active_state = (show.get("ActiveState") or "").strip()
         sub_state = (show.get("SubState") or "").strip()
-        if active_state == "active":
-            totals["botsActive"] += 1
 
         active_enter_mono_us = _safe_float(show.get("ActiveEnterTimestampMonotonic"), 0.0) / 1_000_000.0
         uptime_seconds = 0.0
@@ -1233,43 +1231,50 @@ def _build_payload(cfg: dict[str, object]) -> dict[str, object]:
         if botdef.bot_type == "clawdbot" and botdef.state_dir and botdef.state_dir.exists():
             usage = _scan_clawdbot_usage(botdef.state_dir, tz)
 
+        return {
+            "unit": u,
+            "scope": spec.scope,
+            "user": spec.user,
+            "displayName": botdef.display_name,
+            "telegramHandle": botdef.telegram_handle,
+            "docs": bot_docs,
+            "type": botdef.bot_type,
+            "profile": botdef.profile,
+            "gatewayPort": botdef.gateway_port,
+            "stateDir": str(botdef.state_dir) if botdef.state_dir else None,
+            "systemd": {
+                "loadState": show.get("LoadState") or "",
+                "activeState": active_state,
+                "subState": sub_state,
+                "unitFileState": show.get("UnitFileState") or "",
+                "mainPid": _safe_int(show.get("MainPID"), 0),
+                "nRestarts": _safe_int(show.get("NRestarts"), 0),
+                "memoryCurrentBytes": _safe_int(show.get("MemoryCurrent"), 0),
+                "cpuUsageNSec": _safe_int(show.get("CPUUsageNSec"), 0),
+                "activeEnterTimestamp": show.get("ActiveEnterTimestamp") or "",
+                "uptimeSeconds": uptime_seconds,
+            },
+            "health": {
+                "status": "issue" if health_issues else "ok",
+                "issues": health_issues,
+            },
+            "usage": usage,
+        }
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(32, len(specs) or 1)) as executor:
+        bots = list(executor.map(_process_spec, specs))
+
+    for b in bots:
+        totals["botsTotal"] += 1
+        if b["systemd"]["activeState"] == "active":
+            totals["botsActive"] += 1
+        
+        usage = b.get("usage")
         win24 = (usage or {}).get("windows", {}).get("24h", {}) if usage else {}
         totals["tokens24h"] += _safe_int((win24 or {}).get("tokens"), 0)
         totals["cost24h"] += _safe_float((win24 or {}).get("costUSD"), 0.0)
         totals["requests24h"] += _safe_int((win24 or {}).get("requests"), 0)
         totals["errors24h"] += _safe_int((win24 or {}).get("errors"), 0)
-
-        bots.append(
-            {
-                "unit": u,
-                "scope": spec.scope,
-                "user": spec.user,
-                "displayName": botdef.display_name,
-                "telegramHandle": botdef.telegram_handle,
-                "docs": bot_docs,
-                "type": botdef.bot_type,
-                "profile": botdef.profile,
-                "gatewayPort": botdef.gateway_port,
-                "stateDir": str(botdef.state_dir) if botdef.state_dir else None,
-                "systemd": {
-                    "loadState": show.get("LoadState") or "",
-                    "activeState": active_state,
-                    "subState": sub_state,
-                    "unitFileState": show.get("UnitFileState") or "",
-                    "mainPid": _safe_int(show.get("MainPID"), 0),
-                    "nRestarts": _safe_int(show.get("NRestarts"), 0),
-                    "memoryCurrentBytes": _safe_int(show.get("MemoryCurrent"), 0),
-                    "cpuUsageNSec": _safe_int(show.get("CPUUsageNSec"), 0),
-                    "activeEnterTimestamp": show.get("ActiveEnterTimestamp") or "",
-                    "uptimeSeconds": uptime_seconds,
-                },
-                "health": {
-                    "status": "issue" if health_issues else "ok",
-                    "issues": health_issues,
-                },
-                "usage": usage,
-            }
-        )
 
     return {
         "title": title,
