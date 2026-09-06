@@ -14,7 +14,7 @@
             "Do interactive, conversational work (not a queued CLI job runner)."
           ],
           "cannot": [
-            "Not the CLI-Bridge bot (it does not run Codex/Gemini/Claude CLIs as jobs).",
+            "Not the CLI-Bridge bot (it does not run Codex/Antigravity/Claude CLIs as jobs).",
             "Only responds to allowed Telegram users/chats."
           ]
         },
@@ -26,92 +26,72 @@
             "Работать в диалоге (это не очередь CLI-задач)."
           ],
           "cannot": [
-            "Это не CLI-Bridge бот (не запускает Codex/Gemini/Claude CLI как job).",
+            "Это не CLI-Bridge бот (не запускает Codex/Antigravity/Claude CLI как job).",
             "Отвечает только разрешённым пользователям/чатам."
           ]
         }
       }
     },
-    "clawdbot-original-telegram.service": {
-      "displayName": "Clawd Original",
-      "telegramHandle": "@ClawdOriginalBot",
+    "claudecode-root-telegram.service": {
+      "displayName": "Claude Root Alena",
+      "telegramHandle": "@ClaudeChannelsRootBot",
       "docs": {
         "en": {
-          "how": "Telegram chat bot running Clawdbot gateway (profile: original). Uses Claude (Opus 4.5).",
+          "how": "Telegram chat bot backed directly by Claude Code. Runs as the root-owned service, but currently works in the /home/web workspace and uses the official Telegram Claude plugin.",
           "can": [
-            "Chat, brainstorm, and help with code/text.",
-            "Explain, review, and suggest changes."
+            "Reply conversationally in Telegram through Claude Code.",
+            "Use the shared /home/web workspace for local coding and file work.",
+            "Operate in don't-ask permissions mode for approved Telegram tool actions."
           ],
           "cannot": [
-            "Not the CLI-Bridge bot (it does not run CLI jobs in repos).",
-            "Only responds to allowed Telegram users/chats."
+            "Not a queued CLI bridge bot; it is a live Claude Code chat session.",
+            "Only responds to allowlisted Telegram users.",
+            "Does not use full bypass-permissions mode because Claude blocks that when started as root."
           ]
         },
         "ru": {
-          "how": "Телеграм-бот в формате чата: работает через Clawdbot gateway (профиль: original). Использует Claude (Opus 4.5).",
+          "how": "Телеграм-бот, который работает напрямую через Claude Code. Сервис запущен от root, но сейчас использует workspace /home/web и официальный Telegram-плагин Claude.",
           "can": [
-            "Общаться, помогать с кодом и текстом.",
-            "Объяснять, ревьюить и предлагать правки."
+            "Отвечать в Telegram как живая сессия Claude Code.",
+            "Работать с общим workspace /home/web для кода и файлов.",
+            "Использовать режим don't-ask для разрешённых Telegram-инструментов."
           ],
           "cannot": [
-            "Это не CLI-Bridge бот (не запускает задачи в репозиториях через CLI).",
-            "Отвечает только разрешённым пользователям/чатам."
+            "Это не queued CLI-bridge бот, а живая сессия Claude Code.",
+            "Отвечает только allowlist-пользователям Telegram.",
+            "Не использует полный bypass-permissions, потому что Claude запрещает этот режим при запуске от root."
           ]
         }
       }
     },
-    "clawdbot-moltbot-telegram.service": {
-      "displayName": "Codex 5 Alena",
-      "telegramHandle": "@GPTMoltbot",
+    "claudecode-web-telegram.service": {
+      "displayName": "Claude User Alena",
+      "telegramHandle": "@ClaudeChannelsUserBot",
       "docs": {
         "en": {
-          "how": "Telegram chat bot running Clawdbot gateway (profile: moltbot). Uses GPT-5.2.",
+          "how": "Telegram chat bot backed directly by Claude Code under the web user account. Uses the /home/web workspace and the official Telegram Claude plugin.",
           "can": [
-            "Chat + help with code/text.",
-            "Explain, review, and generate code snippets."
+            "Reply conversationally in Telegram through Claude Code.",
+            "Use the /home/web workspace for local coding and file work.",
+            "Run in bypass-permissions mode, so Telegram requests do not pause on approval prompts."
           ],
           "cannot": [
-            "Not the CLI-Bridge bot (it does not run queued CLI jobs).",
-            "Only responds to allowed Telegram users/chats."
+            "Not a queued CLI bridge bot; it is a live Claude Code chat session.",
+            "Only responds to allowlisted Telegram users.",
+            "Because bypass-permissions is enabled, treat it as a powerful bot and avoid untrusted requests."
           ]
         },
         "ru": {
-          "how": "Телеграм-бот в формате чата: работает через Clawdbot gateway (профиль: moltbot). Использует GPT-5.2.",
+          "how": "Телеграм-бот, который работает напрямую через Claude Code от пользователя web. Использует workspace /home/web и официальный Telegram-плагин Claude.",
           "can": [
-            "Общаться и помогать с кодом/текстом.",
-            "Объяснять, ревьюить и генерировать фрагменты кода."
+            "Отвечать в Telegram как живая сессия Claude Code.",
+            "Работать с workspace /home/web для кода и файлов.",
+            "Работать в bypass-permissions, поэтому запросы из Telegram не останавливаются на approval prompt."
           ],
           "cannot": [
-            "Это не CLI-Bridge бот (не запускает задачи в очереди через CLI).",
-            "Отвечает только разрешённым пользователям/чатам."
-          ]
-        }
-      }
-    },
-    "clawdbot-smartmolt-telegram.service": {
-      "displayName": "GPT 5.3-Codex OpenClaw Mikhail",
-      "telegramHandle": "@GPTSmartMoltBot",
-      "docs": {
-        "en": {
-          "how": "Telegram chat bot running Clawdbot gateway (profile: smartmolt). Uses GPT-5.2.",
-          "can": [
-            "Chat + help with code/text.",
-            "Explain, review, and generate code snippets."
-          ],
-          "cannot": [
-            "Not the CLI-Bridge bot (it does not run queued CLI jobs).",
-            "Only responds to allowed Telegram users/chats."
-          ]
-        },
-        "ru": {
-          "how": "Телеграм-бот в формате чата: работает через Clawdbot gateway (профиль: smartmolt). Использует GPT-5.2.",
-          "can": [
-            "Общаться и помогать с кодом/текстом.",
-            "Объяснять, ревьюить и генерировать фрагменты кода."
-          ],
-          "cannot": [
-            "Это не CLI-Bridge бот (не запускает задачи в очереди через CLI).",
-            "Отвечает только разрешённым пользователям/чатам."
+            "Это не queued CLI-bridge бот, а живая сессия Claude Code.",
+            "Отвечает только allowlist-пользователям Telegram.",
+            "Так как включён bypass-permissions, относитесь к боту как к мощному инструменту и не используйте для недоверенных запросов."
           ]
         }
       }
@@ -128,7 +108,7 @@
             "Do interactive, conversational work (not a queued CLI job runner)."
           ],
           "cannot": [
-            "Not the CLI-Bridge bot (it does not run Codex/Gemini/Claude CLIs as jobs).",
+            "Not the CLI-Bridge bot (it does not run Codex/Antigravity/Claude CLIs as jobs).",
             "Only responds to allowed Telegram users/chats."
           ]
         },
@@ -140,40 +120,8 @@
             "Работать в диалоге (это не очередь CLI-задач)."
           ],
           "cannot": [
-            "Это не CLI-Bridge бот (не запускает Codex/Gemini/Claude CLI как job).",
+            "Это не CLI-Bridge бот (не запускает Codex/Antigravity/Claude CLI как job).",
             "Отвечает только разрешённым пользователям/чатам."
-          ]
-        }
-      }
-    },
-    "cli-bridge-gateway-claude.service": {
-      "displayName": "Claude Regular",
-      "telegramHandle": "@ClaudeLuchBot",
-      "docs": {
-        "en": {
-          "how": "Telegram bot that runs local CLI jobs via Clawdbot gateway + the cli-bridge plugin. Default backend: Claude CLI (resume sessions, bypass-permissions mode).",
-          "can": [
-            "Run coding jobs inside the configured workspaces and stream progress back to Telegram.",
-            "Use multiple backends (Claude/Codex/Gemini) depending on routing/config.",
-            "Queue jobs (limited concurrency) with time limits."
-          ],
-          "cannot": [
-            "Not a pure chat bot: it is focused on running CLI jobs in repos/workspaces.",
-            "Only responds to allowed Telegram users/chats.",
-            "Because bypass-permissions is enabled for Claude, treat it as a powerful tool (avoid untrusted requests)."
-          ]
-        },
-        "ru": {
-          "how": "Телеграм-бот, который запускает локальные CLI-задачи через Clawdbot gateway + плагин cli-bridge. Бэкенд по умолчанию: Claude CLI (resume-сессии, режим bypass-permissions).",
-          "can": [
-            "Запускать задачи в настроенных workspace/репозиториях и отправлять прогресс в Telegram.",
-            "Использовать несколько бэкендов (Claude/Codex/Gemini) в зависимости от маршрутизации/настроек.",
-            "Ставить задачи в очередь (ограниченная параллельность) с лимитами по времени."
-          ],
-          "cannot": [
-            "Это не «просто чат»: основной режим — выполнение CLI-задач в репозиториях/workspace.",
-            "Отвечает только разрешённым пользователям/чатам.",
-            "Так как для Claude включён bypass-permissions, относитесь к боту как к «мощному инструменту» (не используйте для недоверенных запросов)."
           ]
         }
       }
@@ -183,7 +131,7 @@
       "telegramHandle": "@ClawdMBot",
       "docs": {
         "en": {
-          "how": "Telegram bot that runs local CLI jobs via Clawdbot gateway + the cli-bridge plugin. Supports multiple backends (Codex/Claude/Gemini).",
+          "how": "Telegram bot that runs local CLI jobs via Clawdbot gateway + the cli-bridge plugin. Supports multiple backends (Codex/Claude/Antigravity).",
           "can": [
             "Run coding jobs inside the configured workspaces and stream progress back to Telegram.",
             "Use Codex backend with bypass-sandbox enabled (very powerful).",
@@ -195,7 +143,7 @@
           ]
         },
         "ru": {
-          "how": "Телеграм-бот, который запускает локальные CLI-задачи через Clawdbot gateway + плагин cli-bridge. Поддерживает несколько бэкендов (Codex/Claude/Gemini).",
+          "how": "Телеграм-бот, который запускает локальные CLI-задачи через Clawdbot gateway + плагин cli-bridge. Поддерживает несколько бэкендов (Codex/Claude/Antigravity).",
           "can": [
             "Запускать задачи в настроенных workspace/репозиториях и отправлять прогресс в Telegram.",
             "Запускать Codex в режиме bypass-sandbox (очень мощно).",
@@ -204,34 +152,6 @@
           "cannot": [
             "Отвечает только разрешённым пользователям/чатам.",
             "Из-за bypass-режимов не используйте для недоверенных запросов."
-          ]
-        }
-      }
-    },
-    "cli-bridge-gateway-gemini-yolo.service": {
-      "displayName": "Gemini Yolo CLI Alena",
-      "telegramHandle": "@GeminiLuchYoloBot",
-      "docs": {
-        "en": {
-          "how": "Telegram bot that runs local CLI jobs via Clawdbot gateway + the cli-bridge plugin. Default backend: Gemini CLI in YOLO approval mode (auto-approve).",
-          "can": [
-            "Run Gemini CLI jobs inside configured workspaces and stream progress back to Telegram.",
-            "Auto-approve steps (YOLO mode), useful for fast iterations."
-          ],
-          "cannot": [
-            "Only responds to allowed Telegram users/chats.",
-            "YOLO mode is high-risk: avoid untrusted requests."
-          ]
-        },
-        "ru": {
-          "how": "Телеграм-бот, который запускает локальные CLI-задачи через Clawdbot gateway + плагин cli-bridge. Бэкенд по умолчанию: Gemini CLI в режиме YOLO (автоподтверждение).",
-          "can": [
-            "Запускать Gemini CLI задачи в настроенных workspace и отправлять прогресс в Telegram.",
-            "Автоподтверждать шаги (YOLO), удобно для быстрых итераций."
-          ],
-          "cannot": [
-            "Отвечает только разрешённым пользователям/чатам.",
-            "YOLO — рискованный режим: не используйте для недоверенных запросов."
           ]
         }
       }
@@ -333,7 +253,7 @@
             "Keep state between runs (resume sessions)."
           ],
           "cannot": [
-            "This bot is Kimi-only (no Codex/Claude/Gemini backends here).",
+            "This bot is Kimi-only (no Codex/Claude/Antigravity backends here).",
             "Only responds to allowed Telegram users/chats."
           ]
         },
@@ -344,87 +264,354 @@
             "Сохранять состояние между запусками (resume-сессии)."
           ],
           "cannot": [
-            "Этот бот только для Kimi (без Codex/Claude/Gemini).",
+            "Этот бот только для Kimi (без Codex/Claude/Antigravity).",
             "Отвечает только разрешённым пользователям/чатам."
-          ]
-        }
-      }
-    },
-    "cli-bridge-gateway-claude-minimax.service": {
-      "displayName": "Claude Minimax Bypass CLI",
-      "telegramHandle": "@ClaudeMinimaxBot",
-      "docs": {
-        "en": {
-          "how": "User-scoped CLI-Bridge Telegram bot (Clawdbot gateway + cli-bridge). Uses Claude CLI in bypass-permissions mode against a local Anthropic-compatible endpoint (MiniMax).",
-          "can": [
-            "Run Claude-style CLI jobs inside configured workspaces and stream progress back to Telegram.",
-            "Queue jobs with time limits."
-          ],
-          "cannot": [
-            "Only responds to allowed Telegram users/chats.",
-            "Because bypass-permissions is enabled, avoid untrusted requests."
-          ]
-        },
-        "ru": {
-          "how": "Пользовательский CLI-Bridge телеграм-бот (Clawdbot gateway + cli-bridge). Использует Claude CLI в режиме bypass-permissions через локальный Anthropic-совместимый endpoint (MiniMax).",
-          "can": [
-            "Запускать Claude-подобные CLI задачи в настроенных workspace и отправлять прогресс в Telegram.",
-            "Ставить задачи в очередь с лимитами по времени."
-          ],
-          "cannot": [
-            "Отвечает только разрешённым пользователям/чатам.",
-            "Из-за bypass-permissions не используйте для недоверенных запросов."
-          ]
-        }
-      }
-    },
-    "cli-bridge-gateway-claude-bypass.service": {
-      "displayName": "Claude Opus 4.5 Bypass",
-      "telegramHandle": "@ClaudeLuchBypassBot",
-      "docs": {
-        "en": {
-          "how": "User-scoped CLI-Bridge Telegram bot (Clawdbot gateway + cli-bridge). Default backend: Claude CLI (resume sessions, bypass-permissions mode).",
-          "can": [
-            "Run Claude CLI jobs inside configured workspaces and stream progress back to Telegram.",
-            "Queue jobs with time limits."
-          ],
-          "cannot": [
-            "Only responds to allowed Telegram users/chats.",
-            "Because bypass-permissions is enabled, avoid untrusted requests."
-          ]
-        },
-        "ru": {
-          "how": "Пользовательский CLI-Bridge телеграм-бот (Clawdbot gateway + cli-bridge). Бэкенд по умолчанию: Claude CLI (resume-сессии, режим bypass-permissions).",
-          "can": [
-            "Запускать Claude CLI задачи в настроенных workspace и отправлять прогресс в Telegram.",
-            "Ставить задачи в очередь с лимитами по времени."
-          ],
-          "cannot": [
-            "Отвечает только разрешённым пользователям/чатам.",
-            "Из-за bypass-permissions не используйте для недоверенных запросов."
           ]
         }
       }
     },
     "cli-bridge-gateway-gptcli.service": {
       "displayName": "Codex 6 Alena",
-      "telegramHandle": "@GPTCLI2Bot"
+      "telegramHandle": "@GPTCLI2Bot",
+      "docs": {
+        "en": {
+          "how": "Telegram bot that runs local CLI jobs via Clawdbot gateway + the cli-bridge plugin. Default backend: Codex CLI.",
+          "can": [
+            "Run Codex CLI jobs inside the configured workspaces and stream progress back to Telegram.",
+            "Queue coding tasks with the runtime limits configured for this bot."
+          ],
+          "cannot": [
+            "Not a plain chat bot: it is focused on running CLI jobs in allowed workspaces.",
+            "Only responds to allowed Telegram users/chats."
+          ],
+          "steps": [
+            "You send a coding task in Telegram.",
+            "The gateway routes the request through cli-bridge into this bot's allowed workspace.",
+            "Codex CLI runs the task and posts progress updates while it works.",
+            "The bot returns the final summary or result back to Telegram."
+          ],
+          "examples": [
+            {
+              "title": "Fix a bug in a repo",
+              "steps": [
+                "You describe the bug and point to the right project.",
+                "The bot starts a Codex CLI job in the configured workspace.",
+                "Progress messages arrive while the task runs.",
+                "The final result comes back in the same Telegram chat."
+              ]
+            },
+            {
+              "title": "Send another task while one is running",
+              "steps": [
+                "You submit a second task before the first one finishes.",
+                "The new request waits according to this bot's queue rules.",
+                "Codex CLI starts it when a slot is free.",
+                "You receive the final output without manually restarting the bot."
+              ]
+            }
+          ]
+        },
+        "ru": {
+          "how": "Телеграм-бот, который запускает локальные CLI-задачи через Clawdbot gateway + плагин cli-bridge. Бэкенд по умолчанию: Codex CLI.",
+          "can": [
+            "Запускать Codex CLI задачи в настроенных workspace и отправлять прогресс в Telegram.",
+            "Ставить кодовые задачи в очередь с лимитами времени, заданными для этого бота."
+          ],
+          "cannot": [
+            "Это не обычный чат-бот: основной режим здесь именно выполнение CLI-задач в разрешённых workspace.",
+            "Отвечает только разрешённым пользователям/чатам."
+          ],
+          "steps": [
+            "Вы отправляете кодовую задачу в Telegram.",
+            "Gateway передаёт запрос в cli-bridge и направляет его в разрешённый workspace этого бота.",
+            "Codex CLI выполняет задачу и публикует промежуточный прогресс.",
+            "Бот возвращает итоговый summary или результат обратно в Telegram."
+          ],
+          "examples": [
+            {
+              "title": "Исправить баг в репозитории",
+              "steps": [
+                "Вы описываете баг и указываете нужный проект.",
+                "Бот запускает задачу Codex CLI в настроенном workspace.",
+                "Во время работы в чат приходят апдейты по прогрессу.",
+                "Финальный результат возвращается в тот же Telegram-чат."
+              ]
+            },
+            {
+              "title": "Отправить новую задачу, пока первая ещё идёт",
+              "steps": [
+                "Вы посылаете вторую задачу до завершения первой.",
+                "Новый запрос ждёт своей очереди по правилам этого бота.",
+                "Когда слот освобождается, Codex CLI стартует автоматически.",
+                "Вы получаете результат без ручного перезапуска бота."
+              ]
+            }
+          ]
+        }
+      }
     },
     "cli-bridge-gateway-gptcli3.service": {
       "displayName": "GPT 5.3-Codex CLI 3 Bot Mikhail",
-      "telegramHandle": "@GPTCLI3Bot"
+      "telegramHandle": "@GPTCLI3Bot",
+      "docs": {
+        "en": {
+          "how": "Telegram bot that runs local CLI jobs via Clawdbot gateway + the cli-bridge plugin. This bot is configured for the GPT 5.3 / Codex CLI workflow.",
+          "can": [
+            "Run GPT/Codex-style CLI jobs inside the configured workspaces and stream progress back to Telegram.",
+            "Queue tasks and return the result when the CLI run finishes."
+          ],
+          "cannot": [
+            "Not a pure conversational bot: it is designed around executing CLI work.",
+            "Only responds to allowed Telegram users/chats."
+          ],
+          "steps": [
+            "You send a coding request in Telegram.",
+            "The gateway passes it to cli-bridge and starts the configured GPT/Codex CLI workflow.",
+            "The CLI works inside the allowed workspace and streams progress updates.",
+            "The bot posts the final answer or result summary back into Telegram."
+          ],
+          "examples": [
+            {
+              "title": "Run a focused coding task",
+              "steps": [
+                "You ask for a fix, refactor, or implementation in the chat.",
+                "The bot launches the GPT/Codex CLI task in the configured workspace.",
+                "You receive progress updates while the task runs.",
+                "The final summary is returned in Telegram."
+              ]
+            },
+            {
+              "title": "Handle a longer queued task",
+              "steps": [
+                "You submit a task while another one is already active.",
+                "This request waits in queue until the runner is available.",
+                "The CLI starts it automatically when the prior task is done.",
+                "The bot sends the final result when execution completes."
+              ]
+            }
+          ]
+        },
+        "ru": {
+          "how": "Телеграм-бот, который запускает локальные CLI-задачи через Clawdbot gateway + плагин cli-bridge. Этот бот настроен под GPT 5.3 / Codex CLI workflow.",
+          "can": [
+            "Запускать GPT/Codex-подобные CLI задачи в настроенных workspace и отправлять прогресс в Telegram.",
+            "Ставить задачи в очередь и возвращать результат после завершения CLI-запуска."
+          ],
+          "cannot": [
+            "Это не чисто разговорный бот: он заточен под выполнение CLI-работы.",
+            "Отвечает только разрешённым пользователям/чатам."
+          ],
+          "steps": [
+            "Вы отправляете кодовый запрос в Telegram.",
+            "Gateway передаёт его в cli-bridge и запускает настроенный GPT/Codex CLI workflow.",
+            "CLI работает внутри разрешённого workspace и стримит прогресс.",
+            "Бот публикует финальный ответ или summary результата обратно в Telegram."
+          ],
+          "examples": [
+            {
+              "title": "Запустить точечную задачу по коду",
+              "steps": [
+                "Вы просите сделать fix, refactor или реализацию прямо в чате.",
+                "Бот стартует GPT/Codex CLI задачу в настроенном workspace.",
+                "Во время выполнения вы получаете апдейты по прогрессу.",
+                "После завершения итоговый summary возвращается в Telegram."
+              ]
+            },
+            {
+              "title": "Обработать длинную задачу через очередь",
+              "steps": [
+                "Вы отправляете задачу, пока другая ещё активна.",
+                "Этот запрос ждёт в очереди до освобождения раннера.",
+                "Когда предыдущая задача заканчивается, CLI стартует автоматически.",
+                "После завершения бот отправляет финальный результат."
+              ]
+            }
+          ]
+        }
+      }
     },
-    "clawdbot-minimax2-telegram.service": {
-      "displayName": "OpenClaw MiniMax Mikhail",
-      "telegramHandle": "@ClawdMinMax2Bot"
+    "cli-bridge-gateway-gptclibot.service": {
+      "displayName": "GPT 5.3-Codex CLI Mikhail",
+      "telegramHandle": "@GPTCLIbot",
+      "docs": {
+        "en": {
+          "how": "Telegram bot that runs local CLI jobs via Clawdbot gateway + the cli-bridge plugin. This bot is configured for the GPT 5.3 / Codex CLI workflow.",
+          "can": [
+            "Run GPT/Codex-style CLI jobs inside the configured workspaces and stream progress back to Telegram.",
+            "Queue tasks and return the result when the CLI run finishes."
+          ],
+          "cannot": [
+            "Not a pure conversational bot: it is designed around executing CLI work.",
+            "Only responds to allowed Telegram users/chats."
+          ],
+          "steps": [
+            "You send a coding request in Telegram.",
+            "The gateway passes it to cli-bridge and starts the configured GPT/Codex CLI workflow.",
+            "The CLI works inside the allowed workspace and streams progress updates.",
+            "The bot posts the final answer or result summary back into Telegram."
+          ],
+          "examples": [
+            {
+              "title": "Run a focused coding task",
+              "steps": [
+                "You ask for a fix, refactor, or implementation in the chat.",
+                "The bot launches the GPT/Codex CLI task in the configured workspace.",
+                "You receive progress updates while the task runs.",
+                "The final summary is returned in Telegram."
+              ]
+            },
+            {
+              "title": "Handle a longer queued task",
+              "steps": [
+                "You submit a task while another one is already active.",
+                "This request waits in queue until the runner is available.",
+                "The CLI starts it automatically when the prior task is done.",
+                "The bot sends the final result when execution completes."
+              ]
+            }
+          ]
+        },
+        "ru": {
+          "how": "Телеграм-бот, который запускает локальные CLI-задачи через Clawdbot gateway + плагин cli-bridge. Этот бот настроен под GPT 5.3 / Codex CLI workflow.",
+          "can": [
+            "Запускать GPT/Codex-подобные CLI задачи в настроенных workspace и отправлять прогресс в Telegram.",
+            "Ставить задачи в очередь и возвращать результат после завершения CLI-запуска."
+          ],
+          "cannot": [
+            "Это не чисто разговорный бот: он заточен под выполнение CLI-работы.",
+            "Отвечает только разрешённым пользователям/чатам."
+          ],
+          "steps": [
+            "Вы отправляете кодовый запрос в Telegram.",
+            "Gateway передаёт его в cli-bridge и запускает настроенный GPT/Codex CLI workflow.",
+            "CLI работает внутри разрешённого workspace и стримит прогресс.",
+            "Бот публикует финальный ответ или summary результата обратно в Telegram."
+          ],
+          "examples": [
+            {
+              "title": "Запустить точечную задачу по коду",
+              "steps": [
+                "Вы просите сделать fix, refactor или реализацию прямо в чате.",
+                "Бот стартует GPT/Codex CLI задачу в настроенном workspace.",
+                "Во время выполнения вы получаете апдейты по прогрессу.",
+                "После завершения итоговый summary возвращается в Telegram."
+              ]
+            },
+            {
+              "title": "Обработать длинную задачу через очередь",
+              "steps": [
+                "Вы отправляете задачу, пока другая ещё активна.",
+                "Этот запрос ждёт в очереди до освобождения раннера.",
+                "Когда предыдущая задача заканчивается, CLI стартует автоматически.",
+                "После завершения бот отправляет финальный результат."
+              ]
+            }
+          ]
+        }
+      }
     },
     "droidminimax2bot-telegram.service": {
       "displayName": "Codex 4 Alena",
-      "telegramHandle": "@droidminimax2bot"
+      "telegramHandle": "@droidminimax2bot",
+      "docs": {
+        "en": {
+          "how": "Custom Python Telegram bot that launches Codex CLI with the `gpt-5.4` model for each request. It keeps local conversation history and reuses it on follow-ups.",
+          "can": [
+            "Answer coding requests through Codex CLI on GPT-5.4.",
+            "Continue the same chat using the locally stored conversation history."
+          ],
+          "cannot": [
+            "Not a Clawdbot gateway bot (different runtime, no shared Clawdbot queue).",
+            "Each request is bounded by the bot's CLI timeout and watchdog settings."
+          ],
+          "steps": [
+            "You send a Telegram message.",
+            "The Python bot restores the local history for that chat.",
+            "Codex CLI (`gpt-5.4`) is launched for the request.",
+            "The answer comes back to Telegram and the updated chat history is saved locally."
+          ],
+          "examples": [
+            {
+              "title": "Continue the same coding conversation",
+              "steps": [
+                "You ask a follow-up without restating all the earlier context.",
+                "The bot reloads the local chat history.",
+                "Codex CLI answers with the earlier discussion already in scope."
+              ]
+            },
+            {
+              "title": "Send a new coding prompt",
+              "steps": [
+                "You send a fresh coding task in Telegram.",
+                "The bot launches a new Codex CLI run for that request.",
+                "When the run finishes, the result is sent back and stored in local history."
+              ]
+            }
+          ]
+        },
+        "ru": {
+          "how": "Кастомный Python телеграм-бот, который для каждого запроса запускает Codex CLI с моделью `gpt-5.4`. Он хранит локальную историю диалога и подмешивает её в follow-up запросы.",
+          "can": [
+            "Отвечать на кодовые запросы через Codex CLI на GPT-5.4.",
+            "Продолжать тот же чат, используя локально сохранённую историю разговора."
+          ],
+          "cannot": [
+            "Это не Clawdbot gateway (другой рантайм, нет общей очереди Clawdbot).",
+            "Каждый запрос ограничен таймаутом CLI и watchdog-настройками этого бота."
+          ],
+          "steps": [
+            "Вы отправляете сообщение в Telegram.",
+            "Python-бот поднимает локальную историю для этого чата.",
+            "Для запроса запускается Codex CLI (`gpt-5.4`).",
+            "Ответ возвращается в Telegram, а обновлённая история сохраняется локально."
+          ],
+          "examples": [
+            {
+              "title": "Продолжить тот же кодовый разговор",
+              "steps": [
+                "Вы задаёте follow-up без полного повторения предыдущего контекста.",
+                "Бот перечитывает локальную историю чата.",
+                "Codex CLI отвечает уже с учётом предыдущего обсуждения."
+              ]
+            },
+            {
+              "title": "Отправить новую задачу по коду",
+              "steps": [
+                "Вы посылаете новый кодовый запрос в Telegram.",
+                "Бот запускает новый Codex CLI run для этого запроса.",
+                "После завершения результат возвращается в чат и сохраняется в локальной истории."
+              ]
+            }
+          ]
+        }
+      }
     },
-    "claudeminimax2bot-telegram.service": {
-      "displayName": "Claude MiniMax Mikhail",
-      "telegramHandle": "@ClaudeMiniMax2Bot"
+    "cli-bridge-gateway-antigravity-yolo.service": {
+      "displayName": "Antigravity CLI Alena",
+      "docs": {
+        "en": {
+          "how": "Telegram bot that runs local CLI jobs via Clawdbot gateway + the cli-bridge plugin. Default backend: Antigravity CLI with Claude Opus 4.6 (Thinking) and skipped permission prompts.",
+          "can": [
+            "Run Antigravity CLI jobs inside configured workspaces and stream progress back to Telegram.",
+            "Use Claude Opus 4.6 (Thinking), the strongest local Antigravity model selection."
+          ],
+          "cannot": [
+            "Only responds to allowed Telegram users/chats.",
+            "Skipped permission prompts are high-risk: avoid untrusted requests."
+          ]
+        },
+        "ru": {
+          "how": "Телеграм-бот, который запускает локальные CLI-задачи через Clawdbot gateway + плагин cli-bridge. Бэкенд по умолчанию: Antigravity CLI с Claude Opus 4.6 (Thinking) и пропуском permission prompts.",
+          "can": [
+            "Запускать Antigravity CLI задачи в настроенных workspace и отправлять прогресс в Telegram.",
+            "Использовать Claude Opus 4.6 (Thinking), самый сильный локальный выбор модели Antigravity."
+          ],
+          "cannot": [
+            "Отвечает только разрешённым пользователям/чатам.",
+            "Пропуск permission prompts — рискованный режим: не используйте для недоверенных запросов."
+          ]
+        }
+      }
     }
   },
   "units": [
@@ -434,25 +621,13 @@
     "droidminimax2bot-telegram.service",
     "cli-bridge-gateway-gptcli.service",
     "cli-bridge-gateway-gptmolt.service",
-    "cli-bridge-gateway-gemini-yolo.service",
+    "cli-bridge-gateway-antigravity-yolo.service",
     "clawdbot-kimimolty-telegram.service",
     "kimi-cli-gateway.service",
-    "clawdbot-minimax2-telegram.service",
-    "clawdbot-smartmolt-telegram.service",
     "droidminimaxbot-telegram.service",
-    "claudeminimax2bot-telegram.service",
     "cli-bridge-gateway-gptcli3.service",
-    "clawdbot-original-telegram.service",
-    "cli-bridge-gateway-claude.service",
-    {
-      "scope": "user",
-      "unit": "cli-bridge-gateway-claude-bypass.service",
-      "user": "web"
-    },
-    {
-      "scope": "user",
-      "unit": "cli-bridge-gateway-claude-minimax.service",
-      "user": "web"
-    }
+    "cli-bridge-gateway-gptclibot.service",
+    "claudecode-root-telegram.service",
+    "claudecode-web-telegram.service"
   ]
 }

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Bots Dashboard</title>
     <meta name="description" content="Bots dashboard: status, logs, and token/cost usage." />
-    <link rel="stylesheet" href="/styles.css?v=101" />
+    <link rel="stylesheet" href="/styles.css?v=102" />
           <!-- Favicons -->
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=2">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=2">
@@ -191,6 +191,11 @@
             <div id="activityHeatmap" class="heatmapWrap"></div>
           </div>
 
+          <div class="detailBlock detailBlockFull">
+            <h3 class="sectionTitle" data-i18n="bot_docs">How This Bot Operates</h3>
+            <div id="botDocsBox" class="infoBox"></div>
+          </div>
+
           <div class="detailCharts">
             <div class="detailChartsHeader">
               <h3 class="sectionTitle" id="usageChartTitle">Usage</h3>
@@ -236,11 +241,6 @@
                   <canvas id="providerDonut" width="180" height="180"></canvas>
                 </div>
               </div>
-            </div>
-
-            <div class="detailBlock">
-              <h3 class="sectionTitle" data-i18n="bot_docs">How it works</h3>
-              <div id="botDocsBox" class="infoBox"></div>
             </div>
 
             <div class="detailBlock detailBlockFull">
@@ -353,6 +353,6 @@
       </div>
     </div>
 
-    <script src="/app.js?v=101"></script>
+    <script src="/app.js?v=108"></script>
   </body>
 </html>

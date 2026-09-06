@@ -650,6 +650,54 @@ tbody tr.rowStateTransition td:first-child::before{background:rgba(245,158,11,.8
   line-height:1.35;
 }
 .botDocList li{margin:3px 0}
+.botDocListCompact{
+  line-height:1.45;
+}
+.botDocListCompact li{
+  margin:0 0 8px;
+}
+.botDocListCompact li:last-child{
+  margin-bottom:0;
+}
+.botDocSteps{
+  margin:0;
+  padding-left:20px;
+  line-height:1.45;
+}
+.botDocSteps li{margin:0 0 8px}
+.botDocSteps li:last-child{margin-bottom:0}
+.botDocExamples{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+  gap:10px;
+}
+.botDocExample{
+  border:1px solid var(--surfaceBorder);
+  border-radius:12px;
+  background:var(--surface);
+  padding:10px 12px;
+}
+.botDocExampleTitle{
+  color:var(--text);
+  font-size:12px;
+  font-weight:700;
+  margin-bottom:8px;
+}
+.botDocExample .botDocSteps{
+  font-size:12px;
+}
+.botDocFacts{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+  gap:10px;
+}
+.botDocFact{
+  border:1px solid var(--surfaceBorder);
+  border-radius:12px;
+  background:var(--surface);
+  padding:10px 12px;
+  min-width:0;
+}
 .infoRow{
   display:flex;
   justify-content:space-between;
@@ -2666,4 +2714,3 @@ tbody tr.rowClickable.rowBad:hover{
 
 body:not(.botsViewGrid) .botsGrid{display:none}
 body.botsViewGrid .tableWrap{display:none}
-

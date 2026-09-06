@@ -185,11 +185,26 @@ const I18N = {
     last_error: "Last error",
     providers: "Providers",
     recent_logs: "Recent logs",
-    bot_docs: "How it works",
+    bot_docs: "How This Bot Operates",
     bot_docs_missing: "No description configured for this bot.",
     bot_docs_how: "How it works",
     bot_docs_can: "Can",
     bot_docs_cannot: "Cannot",
+    bot_docs_steps: "Operation flow",
+    bot_docs_behind: "Behind the scenes",
+    bot_docs_telegram: "What you'll notice in Telegram",
+    bot_docs_best_for: "Best use cases",
+    bot_docs_gateway_role: "What Clawdbot gateway does",
+    bot_docs_runtime_active: "Which runtime is active",
+    bot_docs_runtime_update: "If Clawdbot/OpenClaw is updated",
+    bot_docs_runtime_model: "Runtime vs model",
+    bot_docs_gateway_size: "How large a piece it is",
+    bot_docs_gateway_replace: "Can it be replaced?",
+    bot_docs_gateway_missing: "If the gateway were missing",
+    bot_docs_skill_missing: "If a skill were missing",
+    bot_docs_mcp_missing: "If MCP/tools were missing",
+    bot_docs_bypass: "What bypassing looks like",
+    bot_docs_examples: "Step-by-step examples",
     load_logs: "Load logs",
     copy: "Copy",
     copy_link: "Copy link",
@@ -412,11 +427,26 @@ const I18N = {
     last_error: "Последняя ошибка",
     providers: "Провайдеры",
     recent_logs: "Логи",
-    bot_docs: "Как работает",
+    bot_docs: "Как работает бот",
     bot_docs_missing: "Для этого бота описание не задано.",
     bot_docs_how: "Как работает",
     bot_docs_can: "Может",
     bot_docs_cannot: "Не может",
+    bot_docs_steps: "Как проходит запрос",
+    bot_docs_behind: "Что происходит внутри",
+    bot_docs_telegram: "Что вы увидите в Telegram",
+    bot_docs_best_for: "Когда этот бот подходит лучше всего",
+    bot_docs_gateway_role: "Что делает Clawdbot gateway",
+    bot_docs_runtime_active: "Какой runtime сейчас активен",
+    bot_docs_runtime_update: "Что будет, если обновить Clawdbot/OpenClaw",
+    bot_docs_runtime_model: "Runtime и модель — не одно и то же",
+    bot_docs_gateway_size: "Насколько это большой кусок системы",
+    bot_docs_gateway_replace: "Можно ли это заменить?",
+    bot_docs_gateway_missing: "Если бы gateway не было",
+    bot_docs_skill_missing: "Если бы не было skill",
+    bot_docs_mcp_missing: "Если бы не было MCP/инструментов",
+    bot_docs_bypass: "Как выглядит обход gateway на практике",
+    bot_docs_examples: "Пошаговые примеры",
     load_logs: "Загрузить",
     copy: "Копировать",
     copy_link: "Скопировать ссылку",
@@ -1326,6 +1356,31 @@ function botMatchesFilter(bot, q) {
   return hay.includes(s);
 }
 
+const BOT_NAME_SORT_COLLATOR = new Intl.Collator(["ru", "en"], {
+  sensitivity: "base",
+  numeric: true,
+});
+
+function botNameSortBucket(bot) {
+  const name = String(bot.displayName || bot.unit || "").toLowerCase();
+  if (name.includes("alena")) return 0;
+  if (name.includes("mikhail")) return 1;
+  return 2;
+}
+
+function compareBotsByNamePriority(a, b) {
+  const bucketDiff = botNameSortBucket(a) - botNameSortBucket(b);
+  if (bucketDiff !== 0) return bucketDiff;
+
+  const nameDiff = BOT_NAME_SORT_COLLATOR.compare(
+    String(a.displayName || a.unit || ""),
+    String(b.displayName || b.unit || ""),
+  );
+  if (nameDiff !== 0) return nameDiff;
+
+  return BOT_NAME_SORT_COLLATOR.compare(String(a.unit || ""), String(b.unit || ""));
+}
+
 function botHasIssues(bot) {
   const usage24 = getUsageWindow(bot, "24h") || {};
   const errors24 = Number(usage24.errors) || 0;
@@ -1539,7 +1594,7 @@ function renderBotsTable(data) {
     if (sortMode === "errors24h_desc") return (Number(ub.errors) || 0) - (Number(ua.errors) || 0);
     if (sortMode === "uptime_desc") return (Number(B.systemd && B.systemd.uptimeSeconds) || 0) - (Number(A.systemd && A.systemd.uptimeSeconds) || 0);
     if (sortMode === "last_activity_desc") return getBotLastActivityMs(B) - getBotLastActivityMs(A);
-    return a.idx - b.idx;
+    return compareBotsByNamePriority(A, B);
   };
 
   filtered.sort((a, b) => {
@@ -3141,6 +3196,914 @@ function renderDetailsMeta(bot) {
   }).join("");
 }
 
+function inferBotDocsKind(bot) {
+  const unit = String(bot && bot.unit || "");
+  if (!unit) return "chat";
+  if (unit.startsWith("cli-bridge-gateway-") || unit === "kimi-cli-gateway.service") return "cli";
+  if (unit.startsWith("clawdbot-") && unit.endsWith("-telegram.service")) return "chat";
+  if (unit.includes("droid") || unit.includes("claudeminimax2bot")) return "local_cli";
+  return "chat";
+}
+
+function inferBotDocsBackend(bot, doc, lang) {
+  const isRu = lang === "ru";
+  const combined = [
+    bot && bot.displayName,
+    bot && bot.telegramHandle,
+    doc && doc.how,
+  ].map(v => String(v || "")).join(" ");
+
+  if (/Claude/i.test(combined) && /MiniMax/i.test(combined)) {
+    return isRu ? "Claude Code CLI через MiniMax" : "Claude Code CLI via MiniMax";
+  }
+  if (/Claude/i.test(combined)) {
+    return isRu ? "Claude" : "Claude";
+  }
+  if (/Antigravity/i.test(combined)) {
+    return isRu ? "Antigravity CLI" : "Antigravity CLI";
+  }
+  if (/Kimi/i.test(combined)) {
+    return isRu ? "Kimi CLI" : "Kimi CLI";
+  }
+  if (/MiniMax/i.test(combined)) {
+    return isRu ? "MiniMax" : "MiniMax";
+  }
+  if (/Droid/i.test(combined)) {
+    return isRu ? "Droid CLI" : "Droid CLI";
+  }
+  if (/Codex|GPT/i.test(combined)) {
+    return isRu ? "Codex CLI" : "Codex CLI";
+  }
+  return isRu ? "AI-бэкенд этого бота" : "this bot's AI backend";
+}
+
+function inferBotRuntimeName(bot) {
+  const explicit = String(bot && bot.runtimeName || "").trim().toLowerCase();
+  if (explicit) return explicit;
+  const execStart = String(bot && bot.execStart || "").trim().toLowerCase();
+  if (execStart.includes("openclaw")) return "openclaw";
+  if (execStart.includes("clawdbot")) return "clawdbot";
+  if (execStart.includes("python")) return "python";
+  return "";
+}
+
+function buildBotDocsFallback(bot, doc, lang) {
+  const isRu = lang === "ru";
+  const kind = inferBotDocsKind(bot);
+  const backend = inferBotDocsBackend(bot, doc, lang);
+  const hasBrowser = /browser/i.test(String(doc && doc.how || "")) || /browser/i.test(JSON.stringify(doc && doc.can || []));
+  const profile = String(bot && bot.profile || "").trim();
+  const gatewayPort = String(bot && bot.gatewayPort || "").trim();
+  const scope = String(bot && bot.scope || "").trim();
+  const stateDir = String(bot && bot.stateDir || "").trim();
+  const shortState = stateDir ? stateDir.split("/").filter(Boolean).slice(-1)[0] : "";
+  const execStart = String(bot && bot.execStart || "").trim();
+  const runtimeName = inferBotRuntimeName(bot);
+  const gatewayFamilyLabel = runtimeName === "openclaw" ? "OpenClaw" : "Clawdbot";
+  const runtimeCommandText = execStart || (runtimeName === "openclaw"
+    ? "/usr/bin/openclaw gateway"
+    : runtimeName === "clawdbot"
+      ? "/usr/bin/clawdbot gateway"
+      : "");
+  const sourceLabel = profile
+    ? (isRu ? `профиль ${profile}` : `the ${profile} profile`)
+    : (isRu ? "конфиг этого сервиса" : "this service's config");
+  const sourceFrom = profile
+    ? (isRu ? `профиля ${profile}` : `the ${profile} profile`)
+    : (isRu ? "конфига этого сервиса" : "this service's config");
+  const legacyCompatLine = isRu
+    ? "OpenClaw умеет читать и legacy CLAWDBOT_* переменные/пути, поэтому миграция может пройти мягко, но это всё равно именно миграция runtime-слоя."
+    : "OpenClaw can read legacy CLAWDBOT_* env vars and paths, so migration can be gentle, but it is still a runtime migration rather than a no-op rename.";
+
+  if (kind === "cli") {
+    return {
+      how: isRu
+        ? "Этот бот принимает задачи из Telegram и запускает локальные CLI-джобы в разрешённых workspace через gateway + cli-bridge."
+        : "This bot accepts tasks from Telegram and runs local CLI jobs inside allowed workspaces through the gateway + cli-bridge stack.",
+      can: isRu
+        ? [
+            "Запускать кодовые задачи и возвращать прогресс по ходу выполнения.",
+            "Использовать настроенный CLI-бэкенд и ограничения этого бота.",
+          ]
+        : [
+            "Run coding tasks and stream progress while they execute.",
+            "Use this bot's configured CLI backend and safety limits.",
+          ],
+      cannot: isRu
+        ? [
+            "Не работает как обычный чат-бот: основной режим здесь именно выполнение задач.",
+            "Не выходит за пределы разрешённых workspace и правил запуска этого бота.",
+          ]
+        : [
+            "It is not a plain chat bot: its main mode is executing tasks.",
+            "It does not go outside the allowed workspaces and runtime rules configured for this bot.",
+          ],
+      steps: isRu
+        ? [
+            "Вы отправляете задачу в Telegram.",
+            `Gateway принимает запрос и передаёт его в cli-bridge, который готовит запуск через ${backend}.`,
+            "Бот определяет подходящий workspace и проверяет свои лимиты, правила безопасности и таймауты.",
+            "Если раннер занят, задача встаёт в очередь; если свободен, CLI стартует сразу.",
+            "CLI выполняет шаги внутри разрешённого workspace и пишет прогресс по мере работы.",
+            "Бот отправляет в Telegram промежуточные статусы, а затем итоговый результат или ошибку.",
+          ]
+        : [
+            "You send a task in Telegram.",
+            `The gateway receives the request and hands it to cli-bridge, which prepares a ${backend} run.`,
+            "The bot chooses the right workspace and applies its time limits, safety rules, and runtime configuration.",
+            "If the runner is busy, the request waits in queue; otherwise the CLI starts immediately.",
+            "The CLI works inside an allowed workspace and emits progress while the task is running.",
+            "The bot sends Telegram status updates and then posts the final result or failure.",
+          ],
+      behind: isRu
+        ? [
+            `Основа этого бота: Clawdbot gateway${gatewayPort ? ` на localhost:${gatewayPort}` : ""} + cli-bridge.`,
+            `${backend} запускается как локальный CLI-процесс, а не как обычный чат-ответ модели.`,
+            "Запросы не теряются, если бот занят: они могут ждать своей очереди по правилам конкретного сервиса.",
+            "CLI работает только в разрешённых workspace и не должен выходить за пределы настроенной среды.",
+            scope === "user"
+              ? "Это пользовательский systemd-сервис, поэтому он работает в user-scope, а не как root/system unit."
+              : "Это systemd-сервис системного уровня, поэтому управление и рестарты идут через systemd.",
+          ]
+        : [
+            `This bot is powered by Clawdbot gateway${gatewayPort ? ` on localhost:${gatewayPort}` : ""} plus cli-bridge.`,
+            `${backend} runs as a local CLI process, not as a normal one-shot chat completion.`,
+            "Requests are not dropped just because the bot is busy: they can wait in queue according to this service's rules.",
+            "The CLI only works inside allowed workspaces and is expected to stay within that configured environment.",
+            scope === "user"
+              ? "This is a user-scoped systemd service, so it runs in user scope rather than as a root/system unit."
+              : "This is a system-level service, so lifecycle control and restarts are handled by systemd.",
+          ],
+      telegram: isRu
+        ? [
+            "Обычно сначала вы увидите короткое подтверждение или сообщение о постановке в очередь.",
+            "Во время длинных задач бот может присылать апдейты прогресса вместо одного мгновенного ответа.",
+            "Финал чаще выглядит как summary выполненной работы, а не как обычный разговорный абзац.",
+            "Если задача упала, бот обычно возвращает сообщение об ошибке или короткое описание места сбоя.",
+          ]
+        : [
+            "You usually see a short acknowledgement or queued status first.",
+            "During longer tasks, the bot may send progress updates instead of a single instant reply.",
+            "The ending is usually a work summary or result, not just a conversational paragraph.",
+            "If the task fails, the bot typically returns an error message or short failure summary.",
+          ],
+      bestFor: isRu
+        ? [
+            "Исправления в репозитории, реализация фич и технические задачи, где нужен реальный CLI-раннер.",
+            "Отладка, когда важно видеть прогресс или дождаться финального результата после нескольких шагов.",
+            "Задачи, которые могут занять время и не обязаны отвечать мгновенно как обычный чат.",
+          ]
+        : [
+            "Repo fixes, feature implementation, and technical tasks that need a real CLI runner.",
+            "Debugging flows where progress visibility matters and the bot may need several execution steps.",
+            "Longer tasks that do not need an instant conversational answer.",
+          ],
+      gatewayRole: isRu
+        ? [
+            `Clawdbot gateway — это локальный рантайм бота${gatewayPort ? `, который слушает порт ${gatewayPort}` : ""} и принимает запросы для этого сервиса.`,
+            "Он не просто вызывает модель: он связывает Telegram/коннектор, конфиг, auth/state и запуск нужного backend или plugin.",
+            "В CLI-ботах через него работает ещё и cli-bridge: gateway принимает задачу, а plugin превращает её в локальный CLI-run.",
+          ]
+        : [
+            `Clawdbot gateway is the local bot runtime${gatewayPort ? ` listening on port ${gatewayPort}` : ""} that receives requests for this service.`,
+            "It does more than call a model once: it ties together Telegram/connector input, config, auth/state, and the chosen backend or plugin.",
+            "For CLI bots, cli-bridge hangs off that gateway: the gateway accepts the task, and the plugin turns it into a local CLI run.",
+          ],
+      runtimeActive: isRu
+        ? [
+            runtimeCommandText
+              ? `Сейчас systemd запускает команду: ${runtimeCommandText}.`
+              : "Сейчас этот бот работает как gateway-runtime поверх cli-bridge.",
+            runtimeName === "clawdbot"
+              ? "То есть даже если пакет выше по течению уже называется OpenClaw, конкретно этот сервис всё ещё сидит на бинарнике clawdbot."
+              : runtimeName === "openclaw"
+                ? "Этот сервис уже стартует через OpenClaw, а не через старый бинарник clawdbot."
+                : "Ключевой факт: здесь есть отдельный runtime между Telegram и CLI, а не прямой запуск модели.",
+            shortState
+              ? `Его состояние и auth привязаны к runtime-папке ${shortState}, поэтому это не одноразовый скрипт без памяти.`
+              : "У него есть собственный lifecycle, состояние и auth-слой, поэтому это не одноразовый скрипт без памяти.",
+          ]
+        : [
+            runtimeCommandText
+              ? `Systemd currently starts this service with: ${runtimeCommandText}.`
+              : "This bot is currently running as a gateway runtime in front of cli-bridge.",
+            runtimeName === "clawdbot"
+              ? "So even if the upstream package is now called OpenClaw, this specific service is still on the clawdbot binary today."
+              : runtimeName === "openclaw"
+                ? "This service already starts through OpenClaw rather than the older clawdbot binary."
+                : "The important part is that a real runtime sits between Telegram and the CLI, not just a direct model call.",
+            shortState
+              ? `Its state and auth are tied to the ${shortState} runtime directory, so this is not a stateless one-shot wrapper.`
+              : "It has its own lifecycle, state, and auth layer, so this is not a stateless one-shot wrapper.",
+          ],
+      runtimeUpdate: isRu
+        ? [
+            runtimeName === "clawdbot"
+              ? "Если вы обновите только пакет openclaw, а unit по-прежнему вызывает clawdbot, для этого бота прямо сейчас не изменится ничего."
+              : "Если вы обновляете тот же самый runtime, бот может продолжить жить на том же Telegram-аккаунте и с тем же профилем.",
+            runtimeName === "clawdbot"
+              ? `Если обновится сам clawdbot по этому же пути, бот обычно сохранит тот же Telegram handle, тот же ${sourceLabel} и тот же backend (${backend}), но могут поменяться transport, очередь, plugin-поведение или auth-детали.`
+              : `Если этот unit уже переведён на OpenClaw, то дальнейшие обновления обычно меняют transport/plugin/runtime-поведение, но не сам Telegram-бот и не выбранный backend (${backend}).`,
+            runtimeName === "clawdbot"
+              ? "Если unit вручную переключить на openclaw и сохранить совместимость профиля/state, бот может продолжить работать как раньше, просто уже на новом runtime-слое."
+              : "Если же совместимость профиля, state или plugin-схемы нарушится, сервис может не стартовать или потерять кусок поведения, хотя сам Telegram handle останется тем же.",
+            legacyCompatLine,
+          ]
+        : [
+            runtimeName === "clawdbot"
+              ? "If you update only the openclaw package while this unit still calls clawdbot, nothing changes for this bot right away."
+              : "When you update the same runtime in place, the bot can usually keep the same Telegram identity and profile.",
+            runtimeName === "clawdbot"
+              ? `If the clawdbot binary itself gets updated at this same path, the bot usually keeps the same Telegram handle, ${sourceLabel}, and backend (${backend}), but transport, queueing, plugin behavior, or auth details can change.`
+              : `If this unit is already on OpenClaw, later updates usually change transport/plugin/runtime behavior, not the Telegram bot identity or chosen backend (${backend}).`,
+            runtimeName === "clawdbot"
+              ? "If you manually switch the unit to openclaw and preserve profile/state compatibility, the bot can keep working much the same way, just on the renamed runtime layer."
+              : "If profile, state, or plugin compatibility breaks, the service may fail to start or lose part of its behavior even though the Telegram handle stays the same.",
+            legacyCompatLine,
+          ],
+      runtimeModel: isRu
+        ? [
+            `${gatewayFamilyLabel}/OpenClaw — это не модель, а runtime-обвязка вокруг Telegram, состояния и запуска backend.`,
+            `Сама модель или backend берётся из ${sourceFrom}${backend ? ` и сейчас это ${backend}` : ""}.`,
+            "Поэтому обновление runtime не превращает бота в custom model само по себе: оно меняет оболочку, transport и интеграции, а не веса модели.",
+          ]
+        : [
+            `${gatewayFamilyLabel}/OpenClaw is not the model; it is the runtime shell around Telegram transport, state, and backend launch.`,
+            `The actual model or backend is chosen by ${sourceLabel}${backend ? ` and is currently ${backend}` : ""}.`,
+            "So updating the runtime does not turn the bot into a custom model by itself; it changes the shell, transport, and integrations, not the model weights.",
+          ],
+      gatewaySize: isRu
+        ? [
+            "Это не маленький prompt-хак и не просто skill: это отдельный сервисный слой со своим lifecycle.",
+            `На практике размер здесь такой: один systemd-сервис${gatewayPort ? `, один gateway-порт (${gatewayPort})` : ""}${shortState ? ` и одна state-папка (${shortState})` : ""}.`,
+            "Он держит маршрутизацию, очереди/состояние, auth-профили и интеграцию с локальными инструментами.",
+          ]
+        : [
+            "This is not a tiny prompt trick and not just a skill: it is a separate service layer with its own lifecycle.",
+            `In practice, the footprint looks like: one systemd service${gatewayPort ? `, one gateway port (${gatewayPort})` : ""}${shortState ? `, and one state directory (${shortState})` : ""}.`,
+            "It owns routing, queue/state handling, auth profiles, and integration with local tools.",
+          ],
+      gatewayReplace: isRu
+        ? [
+            "Да, заменить можно, но только другим бот-рантаймом, который сам умеет принимать Telegram-сообщения, держать состояние и запускать backend/CLI.",
+            "Skill не заменяет gateway: skill лишь меняет инструкции или поведение внутри уже существующего рантайма.",
+            "MCP тоже не является полной заменой: MCP даёт инструменты/интеграции, но не берёт на себя Telegram transport, session state и очередь выполнения.",
+            "Примеры реальной замены в этом workspace уже есть: droidminimaxbot и claudeminimax2bot обходятся без Clawdbot gateway и используют свои Python-runner'ы.",
+          ]
+        : [
+            "Yes, but only with another bot runtime that can receive Telegram messages, keep state, and launch the backend/CLI itself.",
+            "A skill does not replace the gateway: it only changes instructions or behavior inside an existing runtime.",
+            "MCP is not a full replacement either: MCP provides tools/integrations, but it does not take over Telegram transport, session state, or execution queueing by itself.",
+            "There are real replacement examples in this workspace already: droidminimaxbot and claudeminimax2bot bypass Clawdbot gateway and use their own Python runners.",
+          ],
+      gatewayMissing: isRu
+        ? [
+            `Если убрать сам gateway у этого бота, Telegram-запросам больше некуда будет приходить локально${gatewayPort ? ` на порт ${gatewayPort}` : ""}.`,
+            "Профиль, state, auth и маршрутизация backend исчезнут вместе с этим runtime-слоем.",
+            "Для CLI-бота дополнительно пропадёт путь gateway -> cli-bridge -> локальный CLI, то есть задачи просто перестанут запускаться.",
+            "Итог: бот станет либо полностью offline, либо его придётся заменить другим полноценным рантаймом.",
+          ]
+        : [
+            `If you remove the gateway from this bot, Telegram requests no longer have a local runtime to land on${gatewayPort ? ` at port ${gatewayPort}` : ""}.`,
+            "The profile, state, auth handling, and backend routing disappear with that runtime layer.",
+            "For a CLI bot, the gateway -> cli-bridge -> local CLI path also disappears, so jobs simply stop launching.",
+            "End result: the bot becomes effectively offline unless another full runtime replaces it.",
+          ],
+      skillMissing: isRu
+        ? [
+            "Если убрать только skill, бот обычно не умирает и не исчезает из Telegram.",
+            "Он продолжит принимать сообщения через тот же gateway/runtime, но станет менее специализированным.",
+            "Пример: coding-бот может отвечать более общо, забыть внутренние правила команды или перестать следовать желаемому workflow.",
+          ]
+        : [
+            "If you remove only a skill, the bot usually does not die and does not disappear from Telegram.",
+            "It still receives messages through the same gateway/runtime, but becomes less specialized.",
+            "Example: a coding bot may answer more generically, forget team-specific rules, or stop following the preferred workflow.",
+          ],
+      mcpMissing: isRu
+        ? [
+            "Если убрать MCP или другой tool bridge, transport/runtime всё ещё остаётся живым, поэтому бот обычно продолжает отвечать.",
+            "Но пропадают именно tool-capabilities: открыть страницу, сходить в интеграцию, прочитать внешний источник, дернуть локальный сервис.",
+            "Пример: бот сможет сказать «я не могу открыть страницу сейчас» или ответит только из памяти вместо реального tool-run.",
+          ]
+        : [
+            "If you remove MCP or another tool bridge, the transport/runtime still exists, so the bot usually keeps replying.",
+            "What disappears is the tool capability itself: opening a page, calling an integration, reading an external source, or hitting a local service.",
+            "Example: the bot may say it cannot inspect a page right now, or answer only from memory instead of performing a real tool run.",
+          ],
+      bypass: isRu
+        ? [
+            "Обход gateway означает не «выключить один флаг», а написать или запустить другой runtime вместо него.",
+            "Новый runtime должен сам делать Telegram polling/webhook, хранить историю, держать auth, запускать backend и возвращать ответ.",
+            "Прямой пример из этого workspace: droidminimaxbot и claudeminimax2bot принимают сообщения своим Python-кодом без Clawdbot gateway.",
+          ]
+        : [
+            "Bypassing the gateway does not mean flipping one flag off; it means running a different runtime in its place.",
+            "That new runtime must do its own Telegram polling/webhook handling, history/state, auth, backend launch, and response delivery.",
+            "Direct examples from this workspace: droidminimaxbot and claudeminimax2bot receive messages through their own Python code without Clawdbot gateway.",
+          ],
+      examples: isRu
+        ? [
+            {
+              title: "Исправить баг в репозитории",
+              steps: [
+                "Вы пишете, что сломалось, и указываете нужный проект.",
+                "Бот решает, в каком workspace можно выполнять эту задачу, и готовит запуск CLI.",
+                "Если сейчас уже идёт другая работа, ваш запрос ждёт в очереди; иначе стартует сразу.",
+                "Во время выполнения в чат приходят промежуточные апдейты или статусы.",
+                "Когда задача заканчивается, бот присылает summary результата, ошибок или списка изменённых файлов.",
+              ],
+            },
+            {
+              title: "Длинная задача, когда бот уже занят",
+              steps: [
+                "Вы отправляете новую задачу, пока другая ещё выполняется.",
+                "Запрос ставится в очередь по правилам этого бота.",
+                "Когда слот освобождается, cli-bridge автоматически запускает CLI-процесс для вашей задачи.",
+                "Во время выполнения вы начинаете получать уже ваши апдейты прогресса.",
+                "Вы получаете итог без ручного перезапуска процесса или повторной отправки запроса.",
+              ],
+            },
+          ]
+        : [
+            {
+              title: "Fix a bug in a repo",
+              steps: [
+                "You describe the issue and point to the right project.",
+                "The bot resolves which workspace it is allowed to use and prepares the CLI run.",
+                "If another job is already running, your request waits in queue; otherwise it starts immediately.",
+                "Progress updates arrive in the chat while the task runs.",
+                "The bot finishes with the result, errors, or changed files summary.",
+              ],
+            },
+            {
+              title: "Send a long task while the bot is busy",
+              steps: [
+                "You send a new task while another one is still running.",
+                "The request is queued according to this bot's concurrency rules.",
+                "When a slot opens, cli-bridge starts the CLI run automatically.",
+                "You begin receiving your own progress updates as soon as the run starts.",
+                "You receive the final result without manually restarting anything or re-sending the task.",
+              ],
+            },
+          ],
+    };
+  }
+
+  if (kind === "local_cli") {
+    const isClaudeMiniMax = String(bot && bot.unit || "").includes("claudeminimax2bot");
+    return {
+      how: isRu
+        ? "Это кастомный телеграм-бот, который хранит локальную историю чата и запускает CLI для каждого запроса."
+        : "This is a custom Telegram bot that keeps local chat history and launches a CLI process for each request.",
+      can: isRu
+        ? [
+            "Продолжать диалог с сохранённым контекстом и текущими настройками workspace.",
+            isClaudeMiniMax ? "Останавливать зависший запуск командой /cancel." : "Менять рабочий репозиторий командами бота, если это включено.",
+          ]
+        : [
+            "Continue a conversation with saved context and current workspace settings.",
+            isClaudeMiniMax ? "Stop a stuck run with /cancel." : "Change the working repo with bot commands when enabled.",
+          ],
+      cannot: isRu
+        ? [
+            "Это не Clawdbot gateway: здесь нет общей очереди задач между ботами.",
+            "Каждый запрос ограничен таймаутами и guardrail-настройками конкретного бота.",
+          ]
+        : [
+            "This is not a Clawdbot gateway bot: there is no shared job queue across bots.",
+            "Each request is limited by this bot's timeout and guardrail settings.",
+          ],
+      steps: isRu
+        ? [
+            "Вы отправляете сообщение или команду в Telegram.",
+            "Python-бот поднимает историю этого чата и текущие настройки workspace.",
+            `Для запроса запускается ${backend}, который работает не «в пустоте», а с учётом локально сохранённого контекста.`,
+            "Если для этого бота есть guardrail-ограничения, watchdog или команды управления, они применяются к запуску.",
+            "Ответ возвращается в Telegram, а история диалога и состояние этого чата обновляются локально.",
+          ]
+        : [
+            "You send a Telegram message or command.",
+            "The Python bot restores this chat's history and current workspace settings.",
+            `${backend} is launched for the request and works with the locally saved chat context rather than starting from scratch.`,
+            "Any guardrails, watchdogs, or control commands configured for this bot apply to the run.",
+            "The reply is returned to Telegram and the local chat history/state is updated afterward.",
+          ],
+      behind: isRu
+        ? [
+            "Это не универсальный gateway-сервис: здесь работает кастомный Python-бот со своей логикой обработки чатов.",
+            "У каждого чата есть локальная история, поэтому follow-up запросы могут продолжать прошлый контекст точнее, чем одноразовый запуск.",
+            `${backend} стартует как локальный процесс на каждый запрос или активный run этого чата.`,
+            String(bot && bot.unit || "").includes("claudeminimax2bot")
+              ? "Для Claude MiniMax есть защита от зависаний: один активный запуск на чат, watchdog и команда /cancel."
+              : "Для этих ботов поведение сильнее зависит от локального конфига, history и команд типа /repo или /setrepo.",
+          ]
+        : [
+            "This is not a generic gateway service: it is a custom Python bot with its own chat-handling logic.",
+            "Each chat has local history, so follow-up requests can continue prior context more precisely than a one-off run.",
+            `${backend} starts as a local process for each request or active run in that chat.`,
+            String(bot && bot.unit || "").includes("claudeminimax2bot")
+              ? "Claude MiniMax includes anti-stuck guardrails: one active run per chat, a watchdog, and /cancel."
+              : "These bots depend more on local config, stored history, and commands such as /repo or /setrepo.",
+          ],
+      telegram: isRu
+        ? [
+            "Снаружи это похоже на чат-бота, но почти каждый запрос реально запускает CLI под капотом.",
+            "Follow-up сообщения обычно чувствуют прошлый контекст, потому что история этого чата сохраняется локально.",
+            String(bot && bot.unit || "").includes("claudeminimax2bot")
+              ? "Если запуск завис, вы можете прервать его через /cancel и сразу отправить новую задачу."
+              : "Если у бота включены команды управления workspace, вы можете переключать проект прямо из Telegram.",
+          ]
+        : [
+            "From the outside it feels like a chat bot, but most requests really launch a CLI process underneath.",
+            "Follow-up messages usually preserve earlier context because this chat's history is stored locally.",
+            String(bot && bot.unit || "").includes("claudeminimax2bot")
+              ? "If a run gets stuck, you can stop it with /cancel and immediately send a new request."
+              : "When workspace-management commands are enabled, you can switch projects directly from Telegram.",
+          ],
+      bestFor: isRu
+        ? [
+            "Повторяющиеся диалоги по одному и тому же проекту, где важна локальная память чата.",
+            "Работа, где нужно управлять контекстом чата вручную, а не через общую очередь gateway.",
+            "Сценарии, где полезны команды управления вроде /repo, /setrepo или /cancel.",
+          ]
+        : [
+            "Repeated conversations about the same project where per-chat local memory is valuable.",
+            "Workflows where you want manual chat-level context control instead of a shared gateway queue.",
+            "Scenarios where commands such as /repo, /setrepo, or /cancel are useful.",
+          ],
+      gatewayRole: isRu
+        ? [
+            "Этот бот уже не сидит на Clawdbot gateway: Telegram-сообщения идут прямо в его кастомный Python-runner.",
+            `Именно этот runner сам решает, как поднимать ${backend}, хранить историю и обрабатывать команды для чата.`,
+            "То есть здесь gateway уже фактически заменён отдельной реализацией бота.",
+          ]
+        : [
+            "This bot already sits outside Clawdbot gateway: Telegram messages go straight into its custom Python runner.",
+            `That runner itself decides how to launch ${backend}, keep history, and handle chat-level commands.`,
+            "So in this case the gateway has already been replaced by a dedicated bot implementation.",
+          ],
+      runtimeActive: isRu
+        ? [
+            runtimeCommandText
+              ? `Сейчас systemd запускает не clawdbot/openclaw, а команду: ${runtimeCommandText}.`
+              : "Этот бот уже работает на своём отдельном runtime, а не на Clawdbot/OpenClaw gateway.",
+            "То есть обновление пакета clawdbot/openclaw само по себе не пересадит этот бот на другой runtime.",
+            isClaudeMiniMax
+              ? "У Claude MiniMax runner может читать auth из clawdbot-папок, но это shared credentials, а не доказательство того, что сам runtime всё ещё clawdbot."
+              : "Даже если где-то используются старые clawdbot/openclaw state или auth-файлы, это ещё не означает, что сам transport-слой бота работает на gateway.",
+          ]
+        : [
+            runtimeCommandText
+              ? `Systemd currently starts this service with ${runtimeCommandText}, not with clawdbot/openclaw.`
+              : "This bot already runs on its own dedicated runtime rather than on Clawdbot/OpenClaw gateway.",
+            "So updating the clawdbot/openclaw package alone does not move this bot onto a different runtime.",
+            isClaudeMiniMax
+              ? "Claude MiniMax may read auth from clawdbot directories, but that is shared credential storage, not proof that the runtime is still clawdbot."
+              : "Even if old clawdbot/openclaw state or auth files are reused somewhere, that still does not mean the bot transport layer itself is running on the gateway.",
+          ],
+      runtimeUpdate: isRu
+        ? [
+            "Если обновить openclaw или clawdbot, а этот unit по-прежнему запускает Python-runner, Telegram-поведение этого бота обычно не изменится напрямую.",
+            "Изменения будут только если этот кастомный runner сам зависит от формата auth/state, который раньше генерировал clawdbot/openclaw, и новая совместимость сломается.",
+            "То есть для такого бота реальное изменение происходит не от rename пакета, а от правок в коде runner'а или в его конфиге/провайдере.",
+          ]
+        : [
+            "If you update openclaw or clawdbot while this unit still launches its Python runner, this bot's Telegram behavior usually does not change directly.",
+            "The main exception is when that custom runner depends on auth/state formats previously produced by clawdbot/openclaw and compatibility there breaks.",
+            "So for a bot like this, the real behavior change comes from runner code or config changes, not from the package rename by itself.",
+          ],
+      runtimeModel: isRu
+        ? [
+            "Здесь кастомный именно runtime, а не обязательно кастомная модель.",
+            `Сам backend/model по-прежнему берётся из конфига этого runner'а${backend ? ` и сейчас это ${backend}` : ""}.`,
+            "То есть custom bot в этом случае означает «своя транспортная и orchestration-логика», а не «свои веса модели».",
+          ]
+        : [
+            "What is custom here is the runtime, not necessarily the model.",
+            `The actual backend/model is still chosen by this runner's config${backend ? ` and is currently ${backend}` : ""}.`,
+            "So 'custom bot' here means custom transport and orchestration logic, not custom model weights.",
+          ],
+      gatewaySize: isRu
+        ? [
+            "Это полезное сравнение: чтобы «заменить gateway», пришлось написать свой Telegram-runner, историю чатов и управление процессами.",
+            "То есть замена всё равно остаётся полноценным runtime-слоем, а не просто новым prompt или tool.",
+            "Даже у такой замены остаются свои watchdog, state и команды управления.",
+          ]
+        : [
+            "This is the useful comparison point: replacing the gateway still required writing a custom Telegram runner, chat history handling, and process control.",
+            "So the replacement is still a real runtime layer, not just a new prompt or tool.",
+            "Even this kind of replacement keeps its own watchdogs, state, and control commands.",
+          ],
+      gatewayReplace: isRu
+        ? [
+            "Skill может помочь такому боту вести себя иначе, но не заменяет transport/runtime слой.",
+            "MCP может дать новому рантайму дополнительные инструменты, но сам по себе не становится Telegram-ботом.",
+            "Если хочется отказаться от Clawdbot gateway, реальный путь — это свой бот-раннер вроде этого, а не просто добавить skill или MCP.",
+          ]
+        : [
+            "A skill can make a bot like this behave differently, but it does not replace the transport/runtime layer.",
+            "MCP can give a new runtime extra tools, but MCP by itself does not become a Telegram bot.",
+            "If you want to move away from Clawdbot gateway, the real path is a custom runner like this one, not just adding a skill or MCP.",
+          ],
+      gatewayMissing: isRu
+        ? [
+            "Для этого бота вопрос теоретический: gateway здесь уже убран и заменён кастомным runner'ом.",
+            "Если убрать и этот runner, Telegram-сообщения больше не будут обрабатываться вообще.",
+            "То есть кто-то всё равно должен стоять между Telegram и backend: либо gateway, либо ваш собственный рантайм.",
+          ]
+        : [
+            "For this bot the question is mostly theoretical: the gateway is already gone and replaced by a custom runner.",
+            "If you remove that runner too, Telegram messages stop being processed entirely.",
+            "So something still has to sit between Telegram and the backend: either the gateway or your own runtime.",
+          ],
+      skillMissing: isRu
+        ? [
+            "Если убрать skill, сам Python-runner и CLI-запуск продолжат жить.",
+            "Потеряется не transport, а дополнительное поведение: инструкции, стиль, узкие правила, workflow-подсказки.",
+            "Пример: бот всё ещё ответит, но будет менее точным в project-specific задачах.",
+          ]
+        : [
+            "If you remove a skill, the Python runner and CLI execution still keep working.",
+            "What you lose is not transport, but higher-level behavior: instructions, style, narrow rules, workflow hints.",
+            "Example: the bot still answers, but becomes less precise for project-specific work.",
+          ],
+      mcpMissing: isRu
+        ? [
+            "Если убрать MCP/tooling, этот бот всё ещё может принимать Telegram-сообщения и запускать свой основной CLI/backend.",
+            "Но всё, что зависит от внешних tools, исчезнет или начнёт деградировать в «не могу это сделать».",
+            "Это влияет на возможности, но не заменяет сам runtime-слой бота.",
+          ]
+        : [
+            "If you remove MCP/tooling, this bot can still accept Telegram messages and run its main CLI/backend path.",
+            "But everything that depends on external tools disappears or degrades into 'I can't do that here'.",
+            "That changes capability, but it does not replace the bot's runtime layer.",
+          ],
+      bypass: isRu
+        ? [
+            "Здесь bypass уже произошёл: вместо Clawdbot gateway работает отдельный Python Telegram runner.",
+            "Именно поэтому этот бот сам управляет локальной историей, cancel/watchdog и запуском CLI.",
+            "Это хороший пример того, что реальная замена gateway заметно больше, чем просто добавить skill или MCP.",
+          ]
+        : [
+            "This bot is already the bypass example: a dedicated Python Telegram runner is used instead of Clawdbot gateway.",
+            "That is why this bot manages local history, cancel/watchdog behavior, and CLI launch itself.",
+            "It is a good example of why replacing the gateway is much bigger than just adding a skill or MCP.",
+          ],
+      examples: isRu
+        ? [
+            {
+              title: "Продолжить прошлый разговор",
+              steps: [
+                "Вы задаёте follow-up без повторения всей предыстории.",
+                "Бот подмешивает локально сохранённый контекст чата.",
+                "CLI видит предыдущие сообщения и отвечает с учётом истории.",
+                "Новая реплика тоже записывается в локальную историю, чтобы следующий follow-up продолжил ту же линию.",
+              ],
+            },
+            {
+              title: isClaudeMiniMax ? "Остановить зависший запуск" : "Сменить проект перед следующим запросом",
+              steps: isClaudeMiniMax
+                ? [
+                    "Вы замечаете, что текущий запуск завис или больше не нужен.",
+                    "Отправляете /cancel в тот же чат.",
+                    "Бот останавливает текущий процесс и освобождает чат для нового запроса.",
+                    "После этого вы можете сразу отправить новую задачу без рестарта самого сервиса.",
+                  ]
+                : [
+                    "Вы отправляете команду вроде /setrepo или /repo.",
+                    "Бот обновляет текущую рабочую папку для этого чата.",
+                    "Следующий запрос уходит в CLI уже с новым проектным контекстом.",
+                    "Это позволяет держать разные чаты привязанными к разным проектам.",
+                  ],
+            },
+          ]
+        : [
+            {
+              title: "Continue an earlier conversation",
+              steps: [
+                "You ask a follow-up without restating all prior context.",
+                "The bot injects the locally saved chat history.",
+                "The CLI sees the earlier messages and answers in context.",
+                "That new reply is then stored again so the next follow-up continues the same thread.",
+              ],
+            },
+            {
+              title: isClaudeMiniMax ? "Stop a stuck run" : "Switch repos before the next request",
+              steps: isClaudeMiniMax
+                ? [
+                    "You notice the current run is stuck or no longer needed.",
+                    "You send /cancel in the same chat.",
+                    "The bot stops the active process and frees the chat for the next request.",
+                    "You can immediately submit a new task without restarting the service itself.",
+                  ]
+                : [
+                    "You send a command such as /setrepo or /repo.",
+                    "The bot updates the working directory for this chat.",
+                    "The next request is sent to the CLI with the new project context.",
+                    "That lets different chats stay attached to different projects.",
+                  ],
+            },
+          ],
+    };
+  }
+
+  return {
+    how: isRu
+      ? "Это разговорный Telegram-бот: он принимает сообщения, подготавливает контекст и отвечает в том же чате."
+      : "This is a conversational Telegram bot: it receives messages, prepares context, and replies in the same chat.",
+    can: isRu
+      ? [
+          "Вести обычный диалог и помогать с вопросами по тексту или коду.",
+          hasBrowser ? "При необходимости открывать веб-страницы через доступный браузерный инструмент." : "Поддерживать продолжительные диалоги внутри одного чата.",
+        ]
+      : [
+          "Hold a normal conversation and help with text or coding questions.",
+          hasBrowser ? "Open web pages when this bot has a browser tool available." : "Carry longer conversations inside the same chat.",
+        ],
+    cannot: isRu
+      ? [
+          "Это не CLI-раннер: он не ставит задачи в очередь как cli-bridge боты.",
+          "Отвечает только в разрешённых пользователях/чатах, если такой фильтр настроен.",
+        ]
+      : [
+          "It is not a queued CLI runner: it does not execute repo jobs like the cli-bridge bots.",
+          "It only responds in allowed users/chats when that filter is configured.",
+        ],
+    steps: isRu
+      ? [
+          "Вы пишете боту сообщение в Telegram.",
+          `Clawdbot gateway поднимает профиль бота${profile ? ` (${profile})` : ""}, свежий контекст и выбранный бэкенд (${backend}).`,
+          hasBrowser
+            ? "Модель отвечает сразу или при необходимости использует доступный браузерный инструмент."
+            : "Модель формирует ответ в обычном разговорном режиме.",
+          "Недавний контекст диалога сохраняется, чтобы follow-up сообщения продолжали ту же тему.",
+          "Готовый ответ отправляется обратно в тот же чат.",
+        ]
+      : [
+          "You send the bot a message in Telegram.",
+          `The Clawdbot gateway loads the bot profile${profile ? ` (${profile})` : ""}, recent context, and selected backend (${backend}).`,
+          hasBrowser
+            ? "The model answers directly or uses the available browser tool when needed."
+            : "The model produces a reply in normal conversational mode.",
+          "Recent conversation context is preserved so follow-up messages can continue the same thread.",
+          "The finished reply is sent back into the same chat.",
+        ],
+    behind: isRu
+      ? [
+          `Бот работает через Clawdbot gateway${gatewayPort ? ` на localhost:${gatewayPort}` : ""}, а не как отдельный кастомный Python-раннер.`,
+          profile
+            ? `Профиль ${profile} определяет поведение бота: какой backend использовать, какие инструменты доступны и какие ограничения действуют.`
+            : "Поведение бота задаётся конфигурацией gateway и выбранным backend.",
+          "Это не job-очередь для репозиториев: каждый запрос обрабатывается как ход диалога, а не как отдельная CLI-задача.",
+          hasBrowser
+            ? "Если профиль разрешает браузерный инструмент, бот может открывать страницы перед тем, как ответить."
+            : "Если дополнительных инструментов нет, ответ строится только на разговорном контексте и модели.",
+        ]
+      : [
+          `This bot runs through Clawdbot gateway${gatewayPort ? ` on localhost:${gatewayPort}` : ""}, not as a separate custom Python runner.`,
+          profile
+            ? `The ${profile} profile defines how the bot behaves: which backend it uses, which tools are available, and which limits apply.`
+            : "The bot's behavior is defined by gateway configuration and the selected backend.",
+          "This is not a repo job queue: each request is handled as a conversation turn, not as a separate CLI task.",
+          hasBrowser
+            ? "When the profile allows a browser tool, the bot can open pages before replying."
+            : "When extra tools are not enabled, the reply is produced from chat context plus the model only.",
+        ],
+    telegram: isRu
+      ? [
+          "Обычно вы видите один прямой ответ, а не серию технических апдейтов о прогрессе.",
+          "Follow-up вопросы чаще ощущаются естественно, потому что недавний контекст чата сохраняется.",
+          hasBrowser
+            ? "Если бот открывает страницы, ответ может прийти немного позже, потому что сначала он собирает информацию."
+            : "Если вопрос короткий, бот обычно отвечает как обычный разговорный ассистент без стадии очереди или запуска job.",
+        ]
+      : [
+          "You usually see one direct answer rather than a stream of technical progress updates.",
+          "Follow-up questions tend to feel natural because recent chat context is preserved.",
+          hasBrowser
+            ? "If the bot opens webpages, the response may take longer because it gathers information first."
+            : "For short questions, the bot usually behaves like a normal conversational assistant with no queue or job stage.",
+        ],
+    bestFor: isRu
+      ? [
+          "Быстрые вопросы, обсуждения идей, объяснения и обычный интерактивный диалог.",
+          "Короткие циклы вопрос-ответ, когда не нужен полноценный CLI-раннер в репозитории.",
+          hasBrowser
+            ? "Проверка страниц, ссылок и свежего контента, если этому профилю разрешён браузерный инструмент."
+            : "Разговорные задачи, где важнее скорость и контекст, чем выполнение длинной технической job.",
+        ]
+      : [
+          "Quick questions, brainstorming, explanations, and normal interactive conversation.",
+          "Short back-and-forth loops where you do not need a full repo CLI runner.",
+          hasBrowser
+            ? "Checking pages, links, or fresh web content when this profile has the browser tool enabled."
+            : "Conversational tasks where speed and context matter more than a long technical job run.",
+        ],
+    gatewayRole: isRu
+      ? [
+          `Clawdbot gateway — это локальный бот-рантайм${gatewayPort ? ` на порту ${gatewayPort}` : ""}, который держит профиль, сессию и подключение к backend.`,
+          profile
+            ? `Для этого бота профиль ${profile} задаёт, какой backend и какие инструменты использовать на каждом сообщении.`
+            : "Для такого бота gateway решает, как собрать контекст и какой backend вызвать на каждом сообщении.",
+          "Он получает Telegram-вход, добавляет недавний контекст и уже потом зовёт модель или доступный tool.",
+        ]
+      : [
+          `Clawdbot gateway is the local bot runtime${gatewayPort ? ` on port ${gatewayPort}` : ""} that keeps the profile, session state, and backend connection together.`,
+          profile
+            ? `For this bot, the ${profile} profile decides which backend and tools are used on each message.`
+            : "For a bot like this, the gateway decides how to assemble context and which backend to call on each message.",
+          "It receives the Telegram input, adds recent context, and only then calls the model or available tool.",
+        ],
+    runtimeActive: isRu
+      ? [
+          runtimeCommandText
+            ? `Сейчас systemd запускает команду: ${runtimeCommandText}.`
+            : "Сейчас этот бот работает через отдельный gateway-runtime.",
+          runtimeName === "clawdbot"
+            ? "Это значит, что rename проекта в OpenClaw сам по себе пока ничего не переключил: этот сервис до сих пор стартует через clawdbot."
+            : runtimeName === "openclaw"
+              ? "Это значит, что сервис уже переведён на OpenClaw и не зависит от старого имени бинарника."
+              : "Ключевая мысль: между Telegram и моделью уже есть отдельный runtime-слой, а не прямой вызов модели.",
+          shortState
+            ? `Сессии и auth этого бота живут в runtime-состоянии ${shortState}, поэтому transport и модель здесь не одно и то же.`
+            : "Сессии и auth живут в отдельном runtime-слое, поэтому transport и модель здесь не одно и то же.",
+        ]
+      : [
+          runtimeCommandText
+            ? `Systemd currently starts this service with: ${runtimeCommandText}.`
+            : "This bot is currently running through a dedicated gateway runtime.",
+          runtimeName === "clawdbot"
+            ? "That means the project rename to OpenClaw has not switched this service by itself yet: it still starts through clawdbot."
+            : runtimeName === "openclaw"
+              ? "That means the service has already been moved onto OpenClaw and no longer depends on the old binary name."
+              : "The key point is that there is already a distinct runtime layer between Telegram and the model, not a direct model call.",
+          shortState
+            ? `Its sessions and auth live in the ${shortState} runtime state, so transport and model are not the same thing here.`
+            : "Its sessions and auth live in a separate runtime layer, so transport and model are not the same thing here.",
+        ],
+    runtimeUpdate: isRu
+      ? [
+          runtimeName === "clawdbot"
+            ? "Если обновить только пакет openclaw, а unit всё ещё вызывает clawdbot, этот бот прямо сейчас не изменится."
+            : "Если вы обновляете тот же активный runtime, бот обычно продолжит жить на том же Telegram handle и с тем же профилем.",
+          runtimeName === "clawdbot"
+            ? `Если обновится сам clawdbot по тому же пути, профиль${profile ? ` ${profile}` : ""} и backend (${backend}) обычно останутся теми же, но ответы могут меняться из-за обновлённого runtime, tool wiring или auth-логики.`
+            : `Если сервис уже переведён на OpenClaw, то обновления обычно меняют runtime/tool-поведение, но не сам профиль${profile ? ` ${profile}` : ""} и не backend (${backend}).`,
+          runtimeName === "clawdbot"
+            ? "Если unit вручную перевести на openclaw и сохранить совместимость state/config, бот может выглядеть для пользователя почти так же, но уже работать на новом runtime."
+            : "Если же совместимость state, tools или профиля сломается, сервис может не стартовать или потерять часть поведения, даже при том же Telegram handle.",
+          legacyCompatLine,
+        ]
+      : [
+          runtimeName === "clawdbot"
+            ? "If you update only the openclaw package while this unit still calls clawdbot, this bot does not change right away."
+            : "When you update the same active runtime in place, the bot usually keeps the same Telegram handle and profile.",
+          runtimeName === "clawdbot"
+            ? `If the clawdbot binary at the same path gets updated, the ${profile ? `${profile} profile` : "profile"} and backend (${backend}) usually stay the same, but replies can still change because runtime logic, tool wiring, or auth behavior changed.`
+            : `If this service is already on OpenClaw, updates usually change runtime/tool behavior, not the ${profile ? `${profile} profile` : "profile"} or backend (${backend}).`,
+          runtimeName === "clawdbot"
+            ? "If you manually switch the unit to openclaw and preserve state/config compatibility, the bot can look almost the same to users while running on the new runtime underneath."
+            : "If state, tools, or profile compatibility breaks, the service may fail to start or lose part of its behavior even with the same Telegram handle.",
+          legacyCompatLine,
+        ],
+    runtimeModel: isRu
+      ? [
+          `${gatewayFamilyLabel}/OpenClaw — это runtime-обвязка, а не сама модель.`,
+          `Модель и инструменты берутся из ${sourceFrom}${backend ? `; сейчас это ${backend}` : ""}.`,
+          "Поэтому бот не становится custom model только из-за того, что вы обновили или переименовали runtime: меняется orchestration-слой, а не сами веса модели.",
+        ]
+      : [
+          `${gatewayFamilyLabel}/OpenClaw is the runtime shell, not the model itself.`,
+          `The model and tools are selected by ${sourceLabel}${backend ? `; right now that points to ${backend}` : ""}.`,
+          "So the bot does not become a custom model just because you updated or renamed the runtime: the orchestration layer changes, not the model weights.",
+        ],
+    gatewaySize: isRu
+      ? [
+          "Это больше, чем skill или prompt: gateway — отдельный сервис с профилем, state, auth и портом.",
+          `На практике это выглядит как один сервис${gatewayPort ? ` + порт ${gatewayPort}` : ""}${shortState ? ` + state-папка ${shortState}` : ""}.`,
+          "То есть это средний системный слой между Telegram и самой моделью, а не просто тонкая надстройка.",
+        ]
+      : [
+          "This is bigger than a skill or prompt: the gateway is a separate service with profile, state, auth, and a port.",
+          `In practice it looks like one service${gatewayPort ? ` + port ${gatewayPort}` : ""}${shortState ? ` + state directory ${shortState}` : ""}.`,
+          "So it is a medium runtime layer between Telegram and the model, not just a thin wrapper.",
+        ],
+    gatewayReplace: isRu
+      ? [
+          "Да, но замена должна взять на себя transport, контекст, состояние, auth и lifecycle процесса.",
+          "Skill не заменяет gateway: skill лишь учит уже существующий runtime вести себя по-другому.",
+          "MCP не заменяет gateway тоже: MCP — это способ дать runtime инструменты, а не готовый Telegram shell.",
+          "В этом workspace уже есть примеры замены: droidminimaxbot и claudeminimax2bot работают без gateway и сами делают runtime-работу.",
+        ]
+      : [
+          "Yes, but the replacement must take over transport, context, state, auth, and process lifecycle itself.",
+          "A skill does not replace the gateway: it only teaches an existing runtime to behave differently.",
+          "MCP does not replace the gateway either: MCP is a way to give a runtime tools, not a ready-made Telegram shell.",
+          "This workspace already has replacement examples: droidminimaxbot and claudeminimax2bot run without the gateway and perform that runtime work themselves.",
+        ],
+    gatewayMissing: isRu
+      ? [
+          `Если убрать gateway у такого чат-бота, сообщениям некуда будет приходить локально${gatewayPort ? ` на порт ${gatewayPort}` : ""}.`,
+          "Профиль, сохранение недавнего контекста и вызов backend/tooling тоже исчезнут вместе с ним.",
+          "Итог на практике: бот перестанет отвечать, пока вы не дадите ему другой runtime вместо gateway.",
+        ]
+      : [
+          `If you remove the gateway from a chat bot like this, messages no longer have a local runtime to land on${gatewayPort ? ` at port ${gatewayPort}` : ""}.`,
+          "The profile, recent-context handling, and backend/tool calls disappear with it too.",
+          "In practice, the bot stops replying until you replace the gateway with another runtime.",
+        ],
+    skillMissing: isRu
+      ? [
+          "Если убрать skill, бот останется живым и сможет отвечать через тот же gateway.",
+          "Что исчезнет: специализация, стиль, project-specific правила, дополнительные инструкции по workflow.",
+          "Пример: бот всё ещё поговорит с вами, но станет больше похож на generic assistant.",
+        ]
+      : [
+          "If you remove a skill, the bot still stays alive and can reply through the same gateway.",
+          "What disappears is specialization: style, project-specific rules, and extra workflow instructions.",
+          "Example: the bot still talks to you, but feels much more like a generic assistant.",
+        ],
+    mcpMissing: isRu
+      ? [
+          "Если убрать MCP или tool bridge, обычный разговорный ответ всё ещё возможен.",
+          "Но tool-driven вещи ломаются: страница не откроется, интеграция не вызовется, внешний источник не прочитается.",
+          "Пример: вместо реального чтения страницы бот сможет только ответить из памяти или признать, что инструмента нет.",
+        ]
+      : [
+          "If you remove MCP or a tool bridge, a normal conversational answer is still possible.",
+          "But tool-driven actions break: pages do not open, integrations do not run, external sources do not get fetched.",
+          "Example: instead of actually reading a page, the bot can only answer from memory or admit the tool is unavailable.",
+        ],
+    bypass: isRu
+      ? [
+          "Чтобы обойти gateway, нужно не просто убрать его, а заменить на свой runtime, который сам примет Telegram-сообщение и сам вызовет backend.",
+          "Такой runtime должен заново реализовать историю, auth, tool wiring и lifecycle сервиса.",
+          "Поэтому bypass — это уже другая архитектура, а не маленькая настройка.",
+        ]
+      : [
+          "To bypass the gateway, you do not just remove it; you replace it with your own runtime that receives Telegram messages and calls the backend itself.",
+          "That runtime has to re-implement history, auth, tool wiring, and service lifecycle.",
+          "So bypassing is a real architecture change, not a small configuration tweak.",
+        ],
+    examples: isRu
+      ? [
+          {
+            title: "Быстрый вопрос по коду",
+            steps: [
+              "Вы задаёте короткий вопрос или просите объяснить ошибку.",
+              "Gateway поднимает недавний контекст этого чата и отправляет запрос в выбранный backend.",
+              "Бот отвечает без запуска отдельной CLI-job или очереди задач.",
+              "Вы сразу можете продолжить уточняющими вопросами в том же чате.",
+            ],
+          },
+          {
+            title: hasBrowser ? "Проверить веб-страницу" : "Продолжить разговор по теме",
+            steps: hasBrowser
+              ? [
+                  "Вы отправляете URL или просите посмотреть страницу.",
+                  "Бот открывает её через браузерный инструмент, если это разрешено у данного профиля.",
+                  "После этого возвращает summary или ответ по содержимому страницы.",
+                  "Дальше вы можете задавать follow-up вопросы по найденной информации в том же чате.",
+                ]
+              : [
+                  "Вы задаёте follow-up по уже начатой теме.",
+                  "Бот использует недавнюю историю диалога.",
+                  "Ответ приходит как продолжение обычного разговора, без переключения в режим job-раннера.",
+                  "Контекст темы сохраняется и для следующего сообщения тоже.",
+                ],
+          },
+        ]
+      : [
+          {
+            title: "Quick coding question",
+            steps: [
+              "You ask a short question or paste an error to explain.",
+              "The gateway loads the recent context from this chat and sends the request to the selected backend.",
+              "The bot answers without launching a separate CLI job or queueing workflow.",
+              "You can immediately continue with follow-up questions in the same chat.",
+            ],
+          },
+          {
+            title: hasBrowser ? "Check a webpage" : "Continue the same topic",
+            steps: hasBrowser
+              ? [
+                  "You send a URL or ask the bot to inspect a page.",
+                  "The bot opens it with the browser tool when that profile allows it.",
+                  "It returns a summary or answer based on what it found on the page.",
+                  "You can then keep asking follow-ups about that page in the same chat thread.",
+                ]
+              : [
+                  "You send a follow-up about the same topic.",
+                  "The bot uses the recent chat history.",
+                  "The answer comes back as a normal conversation, not a queued job run.",
+                  "The topic stays warm for the next message too.",
+                ],
+          },
+        ],
+  };
+}
+
 function renderBotDocs(bot) {
   const box = $("botDocsBox");
   if (!box) return;
@@ -3148,15 +4111,37 @@ function renderBotDocs(bot) {
   const docsAll = bot && bot.docs;
   const lang = normalizeLang(state.ui.lang) || "en";
   const doc = (docsAll && (docsAll[lang] || docsAll.en)) ? (docsAll[lang] || docsAll.en) : null;
-
-  if (!doc || typeof doc !== "object") {
-    box.innerHTML = `<div class="muted">${escapeHtml(t("bot_docs_missing"))}</div>`;
-    return;
-  }
+  const fallback = buildBotDocsFallback(bot, doc, lang);
 
   const sections = [];
+  const toList = (items) => Array.isArray(items)
+    ? items.map(s => String(s || "").trim()).filter(Boolean)
+    : [];
+  const pickRicherList = (primary, fallbackItems) => {
+    const a = toList(primary);
+    const b = toList(fallbackItems);
+    return a.length >= b.length ? a : b;
+  };
+  const normalizeExamples = (items) => Array.isArray(items)
+    ? items.map((entry) => {
+        if (!entry || typeof entry !== "object") return null;
+        const title = String(entry.title || "").trim();
+        const steps = toList(entry.steps);
+        return title && steps.length ? { title, steps } : null;
+      }).filter(Boolean)
+    : [];
+  const pickRicherExamples = (primary, fallbackItems) => {
+    const a = normalizeExamples(primary);
+    const b = normalizeExamples(fallbackItems);
+    const score = (items) => items.reduce((sum, entry) => sum + entry.steps.length, 0);
+    return score(a) >= score(b) ? a : b;
+  };
+  const renderStepList = (items, klass = "botDocList") =>
+    `<ol class="${klass}">${items.map(s => `<li>${escapeHtml(s)}</li>`).join("")}</ol>`;
+  const renderBulletList = (items, klass = "botDocList") =>
+    `<ul class="${klass}">${items.map(s => `<li>${escapeHtml(s)}</li>`).join("")}</ul>`;
 
-  const how = String(doc.how || "").trim();
+  const how = String((doc && doc.how) || fallback.how || "").trim();
   if (how) {
     const html = escapeHtml(how).replaceAll("\n", "<br>");
     sections.push(
@@ -3164,17 +4149,127 @@ function renderBotDocs(bot) {
     );
   }
 
-  const can = Array.isArray(doc.can) ? doc.can.map(s => String(s || "").trim()).filter(Boolean) : [];
+  const can = toList(doc && doc.can).length ? toList(doc && doc.can) : toList(fallback.can);
   if (can.length) {
     sections.push(
       `<div class="botDocSection"><div class="botDocTitle good">${escapeHtml(t("bot_docs_can"))}</div><ul class="botDocList">${can.map(s => `<li>${escapeHtml(s)}</li>`).join("")}</ul></div>`
     );
   }
 
-  const cannot = Array.isArray(doc.cannot) ? doc.cannot.map(s => String(s || "").trim()).filter(Boolean) : [];
+  const cannot = toList(doc && doc.cannot).length ? toList(doc && doc.cannot) : toList(fallback.cannot);
   if (cannot.length) {
     sections.push(
       `<div class="botDocSection"><div class="botDocTitle bad">${escapeHtml(t("bot_docs_cannot"))}</div><ul class="botDocList">${cannot.map(s => `<li>${escapeHtml(s)}</li>`).join("")}</ul></div>`
+    );
+  }
+
+  const steps = pickRicherList(doc && doc.steps, fallback.steps);
+  if (steps.length) {
+    sections.push(
+      `<div class="botDocSection"><div class="botDocTitle">${escapeHtml(t("bot_docs_steps"))}</div>${renderStepList(steps, "botDocSteps")}</div>`
+    );
+  }
+
+  const detailCards = [];
+  const behind = toList(doc && doc.behind).length ? toList(doc && doc.behind) : toList(fallback.behind);
+  if (behind.length) {
+    detailCards.push(
+      `<div class="botDocFact"><div class="botDocTitle">${escapeHtml(t("bot_docs_behind"))}</div>${renderBulletList(behind, "botDocList botDocListCompact")}</div>`
+    );
+  }
+
+  const telegram = toList(doc && doc.telegram).length ? toList(doc && doc.telegram) : toList(fallback.telegram);
+  if (telegram.length) {
+    detailCards.push(
+      `<div class="botDocFact"><div class="botDocTitle">${escapeHtml(t("bot_docs_telegram"))}</div>${renderBulletList(telegram, "botDocList botDocListCompact")}</div>`
+    );
+  }
+
+  const bestFor = toList(doc && doc.bestFor).length ? toList(doc && doc.bestFor) : toList(fallback.bestFor);
+  if (bestFor.length) {
+    detailCards.push(
+      `<div class="botDocFact"><div class="botDocTitle">${escapeHtml(t("bot_docs_best_for"))}</div>${renderBulletList(bestFor, "botDocList botDocListCompact")}</div>`
+    );
+  }
+
+  const gatewayRole = toList(doc && doc.gatewayRole).length ? toList(doc && doc.gatewayRole) : toList(fallback.gatewayRole);
+  if (gatewayRole.length) {
+    detailCards.push(
+      `<div class="botDocFact"><div class="botDocTitle">${escapeHtml(t("bot_docs_gateway_role"))}</div>${renderBulletList(gatewayRole, "botDocList botDocListCompact")}</div>`
+    );
+  }
+
+  const runtimeActive = toList(doc && doc.runtimeActive).length ? toList(doc && doc.runtimeActive) : toList(fallback.runtimeActive);
+  if (runtimeActive.length) {
+    detailCards.push(
+      `<div class="botDocFact"><div class="botDocTitle">${escapeHtml(t("bot_docs_runtime_active"))}</div>${renderBulletList(runtimeActive, "botDocList botDocListCompact")}</div>`
+    );
+  }
+
+  const runtimeUpdate = toList(doc && doc.runtimeUpdate).length ? toList(doc && doc.runtimeUpdate) : toList(fallback.runtimeUpdate);
+  if (runtimeUpdate.length) {
+    detailCards.push(
+      `<div class="botDocFact"><div class="botDocTitle">${escapeHtml(t("bot_docs_runtime_update"))}</div>${renderBulletList(runtimeUpdate, "botDocList botDocListCompact")}</div>`
+    );
+  }
+
+  const runtimeModel = toList(doc && doc.runtimeModel).length ? toList(doc && doc.runtimeModel) : toList(fallback.runtimeModel);
+  if (runtimeModel.length) {
+    detailCards.push(
+      `<div class="botDocFact"><div class="botDocTitle">${escapeHtml(t("bot_docs_runtime_model"))}</div>${renderBulletList(runtimeModel, "botDocList botDocListCompact")}</div>`
+    );
+  }
+
+  const gatewaySize = toList(doc && doc.gatewaySize).length ? toList(doc && doc.gatewaySize) : toList(fallback.gatewaySize);
+  if (gatewaySize.length) {
+    detailCards.push(
+      `<div class="botDocFact"><div class="botDocTitle">${escapeHtml(t("bot_docs_gateway_size"))}</div>${renderBulletList(gatewaySize, "botDocList botDocListCompact")}</div>`
+    );
+  }
+
+  const gatewayReplace = toList(doc && doc.gatewayReplace).length ? toList(doc && doc.gatewayReplace) : toList(fallback.gatewayReplace);
+  if (gatewayReplace.length) {
+    detailCards.push(
+      `<div class="botDocFact"><div class="botDocTitle">${escapeHtml(t("bot_docs_gateway_replace"))}</div>${renderBulletList(gatewayReplace, "botDocList botDocListCompact")}</div>`
+    );
+  }
+
+  const gatewayMissing = toList(doc && doc.gatewayMissing).length ? toList(doc && doc.gatewayMissing) : toList(fallback.gatewayMissing);
+  if (gatewayMissing.length) {
+    detailCards.push(
+      `<div class="botDocFact"><div class="botDocTitle">${escapeHtml(t("bot_docs_gateway_missing"))}</div>${renderBulletList(gatewayMissing, "botDocList botDocListCompact")}</div>`
+    );
+  }
+
+  const skillMissing = toList(doc && doc.skillMissing).length ? toList(doc && doc.skillMissing) : toList(fallback.skillMissing);
+  if (skillMissing.length) {
+    detailCards.push(
+      `<div class="botDocFact"><div class="botDocTitle">${escapeHtml(t("bot_docs_skill_missing"))}</div>${renderBulletList(skillMissing, "botDocList botDocListCompact")}</div>`
+    );
+  }
+
+  const mcpMissing = toList(doc && doc.mcpMissing).length ? toList(doc && doc.mcpMissing) : toList(fallback.mcpMissing);
+  if (mcpMissing.length) {
+    detailCards.push(
+      `<div class="botDocFact"><div class="botDocTitle">${escapeHtml(t("bot_docs_mcp_missing"))}</div>${renderBulletList(mcpMissing, "botDocList botDocListCompact")}</div>`
+    );
+  }
+
+  const bypass = toList(doc && doc.bypass).length ? toList(doc && doc.bypass) : toList(fallback.bypass);
+  if (bypass.length) {
+    detailCards.push(
+      `<div class="botDocFact"><div class="botDocTitle">${escapeHtml(t("bot_docs_bypass"))}</div>${renderBulletList(bypass, "botDocList botDocListCompact")}</div>`
+    );
+  }
+
+  if (detailCards.length) {
+    sections.push(`<div class="botDocFacts">${detailCards.join("")}</div>`);
+  }
+
+  const examples = pickRicherExamples(doc && doc.examples, fallback.examples);
+  if (examples.length) {
+    sections.push(
+      `<div class="botDocSection"><div class="botDocTitle">${escapeHtml(t("bot_docs_examples"))}</div><div class="botDocExamples">${examples.map((entry) => `<div class="botDocExample"><div class="botDocExampleTitle">${escapeHtml(entry.title)}</div>${renderStepList(entry.steps, "botDocSteps")}</div>`).join("")}</div></div>`
     );
   }
 
@@ -3517,8 +4612,8 @@ function renderFieldGuide(bot) {
   if (bot.type) {
     const typeExplain = bot.type === "clawdbot"
       ? (isRu
-        ? `<strong>Тип: clawdbot</strong> — работает на движке <strong>Clawdbot Gateway</strong>. Clawdbot — универсальная платформа: принимает сообщения из Telegram, направляет в AI-бэкенд (Claude, Codex, Gemini, Kimi, MiniMax), управляет очередью задач, хранит историю сессий. ${clawdbots.length} из ${totalBots} ботов используют этот движок.`
-        : `<strong>Type: clawdbot</strong> — runs on the <strong>Clawdbot Gateway</strong> engine. Clawdbot is a universal platform: receives Telegram messages, routes to an AI backend (Claude, Codex, Gemini, Kimi, MiniMax), manages job queue, stores session history. ${clawdbots.length} of ${totalBots} bots use this engine.`)
+        ? `<strong>Тип: clawdbot</strong> — работает на движке <strong>Clawdbot Gateway</strong>. Clawdbot — универсальная платформа: принимает сообщения из Telegram, направляет в AI-бэкенд (Claude, Codex, Antigravity, Kimi, MiniMax), управляет очередью задач, хранит историю сессий. ${clawdbots.length} из ${totalBots} ботов используют этот движок.`
+        : `<strong>Type: clawdbot</strong> — runs on the <strong>Clawdbot Gateway</strong> engine. Clawdbot is a universal platform: receives Telegram messages, routes to an AI backend (Claude, Codex, Antigravity, Kimi, MiniMax), manages job queue, stores session history. ${clawdbots.length} of ${totalBots} bots use this engine.`)
       : bot.type === "droid"
         ? (isRu
           ? `<strong>Тип: droid</strong> — работает через <strong>Droid CLI</strong> (<code>droid exec</code>). Более простой Python-бот — вызывает Droid CLI для каждого сообщения. Нет очереди задач clawdbot, но есть свои команды (/repo, /newchat). ${droids.length} из ${totalBots} ботов используют Droid.`
@@ -3635,8 +4730,8 @@ function renderFieldGuide(bot) {
       let explanation;
       if (key === "CLAWDBOT_CONFIG_PATH") {
         explanation = isRu
-          ? `<strong>Путь к конфигу Clawdbot</strong> — JSON-файл, определяющий поведение бота: AI-бэкенд (Claude/Codex/Gemini/Kimi/MiniMax), список workspace, токены Telegram, таймауты, параллельность, режимы (bypass-sandbox, bypass-permissions). Каждый бот имеет свой конфиг.`
-          : `<strong>Clawdbot config path</strong> — JSON file defining bot behavior: AI backend (Claude/Codex/Gemini/Kimi/MiniMax), workspace list, Telegram tokens, timeouts, concurrency, modes (bypass-sandbox, bypass-permissions). Each bot has its own config.`;
+          ? `<strong>Путь к конфигу Clawdbot</strong> — JSON-файл, определяющий поведение бота: AI-бэкенд (Claude/Codex/Antigravity/Kimi/MiniMax), список workspace, токены Telegram, таймауты, параллельность, режимы (bypass-sandbox, bypass-permissions). Каждый бот имеет свой конфиг.`
+          : `<strong>Clawdbot config path</strong> — JSON file defining bot behavior: AI backend (Claude/Codex/Antigravity/Kimi/MiniMax), workspace list, Telegram tokens, timeouts, concurrency, modes (bypass-sandbox, bypass-permissions). Each bot has its own config.`;
       } else if (key === "CLAWDBOT_GATEWAY_PORT") {
         explanation = isRu
           ? `<strong>Порт gateway</strong> — HTTP-порт, где Clawdbot слушает. Telegram-коннектор и cli-bridge подключаются сюда. Совпадает с <code>port</code> в карточке.`
@@ -3723,10 +4818,10 @@ function renderFieldGuide(bot) {
         provExplain = isRu
           ? `<strong>${escapeHtml(name)}</strong> — Kimi (Moonshot AI). Модели: ${models.join(", ")}. Специализация на коде.`
           : `<strong>${escapeHtml(name)}</strong> — Kimi (Moonshot AI). Models: ${models.join(", ")}. Code specialist.`;
-      } else if (name.includes("gemini") || name.includes("google")) {
+      } else if (name.includes("antigravity")) {
         provExplain = isRu
-          ? `<strong>${escapeHtml(name)}</strong> — Gemini (Google). Модели: ${models.join(", ")}. Большой контекст.`
-          : `<strong>${escapeHtml(name)}</strong> — Gemini (Google). Models: ${models.join(", ")}. Large context window.`;
+          ? `<strong>${escapeHtml(name)}</strong> — Antigravity. Модели: ${models.join(", ")}.`
+          : `<strong>${escapeHtml(name)}</strong> — Antigravity. Models: ${models.join(", ")}.`;
       } else {
         provExplain = isRu
           ? `<strong>${escapeHtml(name)}</strong> — AI-провайдер. Модели: ${models.join(", ") || "-"}.`
